@@ -35,16 +35,14 @@ class FleetProblem:
                 if current_mode == 'P':
                     col = 1 - P
                     for weight in words:
-                        self.graph.add_edge(row, col, int(weight))
+                        self.graph.add_edge(row, col, float(weight))
                         col += 1
                     row += 1
                     P -= 1
                 elif current_mode == 'R':
-                    request = tuple(map(int, words))
-                    self.requests.add_request(request)
+                    self.requests.add_request(words)
                 elif current_mode == 'V':
-                    vehicle = int(words[0])
-                    self.vehicles.add_vehicle(vehicle)
+                    self.vehicles.add_vehicle(words)
                 else:
                     raise Exception('Invalid mode')
 
@@ -91,7 +89,17 @@ class Requests:
         self.num_requests = num_requests
         self.requests = []
 
-    def add_request(self, request):
+    def add_request(self, words):
+        value = 0
+        request = []
+        for word in words:
+            try:
+                value = float(word)
+                if value.is_integer():
+                    value = int(value)
+            except ValueError:
+                pass
+            request.append(value)
         self.requests.append(request)
 
     def get_request(self, index):
@@ -109,7 +117,8 @@ class Vehicles:
         self.num_vehicles = num_vehicles
         self.vehicles = []
 
-    def add_vehicle(self, vehicle):
+    def add_vehicle(self, words):
+        vehicle = int(words[0])
         self.vehicles.append(vehicle)
 
     def get_vehicle(self, index):
