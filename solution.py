@@ -5,15 +5,32 @@ import search
 
 # Define a class for solving the Fleet Problem
 class FleetProblem(search.Problem):
-    def __init__(self):
-        # Initialize instance variables
-        self.sol = None  # Store the solution
-        self.graph = None  # Store the graph data
-        self.requests = None  # Store the request data
-        self.vehicles = None  # Store the vehicle data
+    """A class for solving the Fleet Problem.
 
-    # Load data from a file into the FleetProblem instance
+    Attributes:
+        sol (list): The solution to the problem.
+        graph (Graph): The graph data.
+        requests (Requests): The request data.
+        vehicles (Vehicles): The vehicle data.
+    """
+
+    def __init__(self):
+        """Initializes a FleetProblem instance."""
+        self.sol = None
+        self.graph = None
+        self.requests = None
+        self.vehicles = None
+
     def load(self, file_content):
+        """Loads data from a file into the FleetProblem instance.
+
+        Args:
+            file_content (list): The contents of the file to load.
+
+        Raises:
+            Exception: If an invalid mode is encountered.
+        """
+
         current_mode = None  # Track the current mode (P, R, or V)
         row = 0  # Track the current row being processed
         P = 0
@@ -45,12 +62,19 @@ class FleetProblem(search.Problem):
                 elif current_mode == 'R':
                     self.requests.add_request(words)  # Add request data
                 elif current_mode == 'V':
-                    self.vehicles.add_vehicle(words)  # Add vehicle data
+                    self.vehicles.add_vehicle(int(words[0]))  # Add vehicle data
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
 
-    # Calculate the cost of a solution
     def cost(self, sol):
+        """Calculates the cost of a solution.
+
+        Args:
+            sol (list): The solution to calculate the cost for.
+
+        Returns:
+            float: The total cost of the solution.
+        """
         total_cost = 0
         for action in sol:
             if action[0] == 'Dropoff':
@@ -65,37 +89,78 @@ class FleetProblem(search.Problem):
 
 # Define a class for representing a graph
 class Graph:
+    """A class for representing a graph.
+
+    Attributes:
+        num_vertices (int): The number of vertices in the graph.
+        directed (bool): Whether the graph is directed or not.
+        graph (list): The adjacency matrix representing the graph.
+    """
     def __init__(self, num_vertices, directed=False):
+        """Initializes a Graph instance.
+
+        Args:
+            num_vertices (int): The number of vertices in the graph.
+            directed (bool, optional): Whether the graph is directed or not. Defaults to False.
+        """
         self.num_vertices = num_vertices
         self.directed = directed
-        self.graph = [[0] * num_vertices for _ in range(num_vertices)]  # Initialize adjacency matrix
+        self.graph = [[0] * num_vertices for _ in range(num_vertices)]
 
-    # Add an edge to the graph
     def add_edge(self, u, v, w):
+        """Adds an edge to the graph.
+
+        Args:
+            u (int): The index of the first vertex.
+            v (int): The index of the second vertex.
+            w (float): The weight of the edge.
+        """
         self.graph[u][v] = w
         if not self.directed:
             self.graph[v][u] = w
 
-    # Get the weight of an edge
     def get_edge(self, u, v):
+        """Gets the weight of an edge.
+
+        Args:
+            u (int): The index of the first vertex.
+            v (int): The index of the second vertex.
+
+        Returns:
+            float: The weight of the edge.
+        """
         return self.graph[u][v]
 
-    # Print the graph
     def print_graph(self):
+        """Prints the graph."""
         print('Graph:')
         for row in self.graph:
             print(row)
         print()
 
 
-# Define a class for representing requests
 class Requests:
+    """A class for representing requests.
+
+    Attributes:
+        num_requests (int): The number of requests.
+        requests (list): The list of requests.
+    """
     def __init__(self, num_requests):
+        """Initializes a Requests instance.
+
+        Args:
+            num_requests (int): The number of requests.
+        """
         self.num_requests = num_requests
         self.requests = []
 
-    # Add a request to the list of requests
     def add_request(self, words):
+        """Adds a request to the list of requests.
+
+        Args:
+            words (list): The words representing the request.
+        """
         value = 0
         request = []
         for word in words:
@@ -108,35 +173,63 @@ class Requests:
             request.append(value)
         self.requests.append(request)
 
-    # Get a request by index
     def get_request(self, index):
+        """Gets a request by index.
+
+        Args:
+            index (int): The index of the request.
+
+        Returns:
+            list: The request.
+        """
         return self.requests[index]
 
-    # Print the list of requests
     def print_requests(self):
+        """Prints the list of requests."""
         print('Requests:')
         for request in self.requests:
             print(request)
         print()
 
 
-# Define a class for representing vehicles
 class Vehicles:
+    """A class for representing vehicles.
+
+    Attributes:
+        num_vehicles (int): The number of vehicles.
+        vehicles (list): The list of vehicles.
+    """
+
     def __init__(self, num_vehicles):
+        """Initializes a Vehicles instance.
+
+        Args:
+            num_vehicles (int): The number of vehicles.
+        """
         self.num_vehicles = num_vehicles
         self.vehicles = []
 
-    # Add a vehicle to the list of vehicles
-    def add_vehicle(self, words):
-        vehicle = int(words[0])
-        self.vehicles.append(vehicle)
+    def add_vehicle(self, seats):
+        """Adds a vehicle to the list of vehicles.
 
-    # Get a vehicle by index
+        Args:
+            seats (list): The seats representing the vehicle.
+        """
+        self.vehicles.append(seats)
+
     def get_vehicle(self, index):
+        """Gets a vehicle by index.
+
+        Args:
+            index (int): The index of the vehicle.
+
+        Returns:
+            int: The vehicle.
+        """
         return self.vehicles[index]
 
-    # Print the list of vehicles
     def print_vehicles(self):
+        """Prints the list of vehicles."""
         print('Vehicles:')
         for vehicle in self.vehicles:
             print(vehicle)
@@ -144,14 +237,17 @@ class Vehicles:
 
 
 if __name__ == '__main__':
+    # Define a list of actions to perform
     sols = [('Pickup', 0, 3, 30.0), ('Pickup', 1, 4, 25.0), ('Pickup', 1, 0, 25.0),
             ('Dropoff', 1, 4, 75.0), ('Dropoff', 1, 0, 75.0), ('Pickup', 0, 2, 30.0),
             ('Dropoff', 0, 3, 80.0), ('Pickup', 0, 1, 80.0), ('Dropoff', 0, 1, 140.0),
             ('Dropoff', 0, 2, 140.0)]
 
+    # Create a FleetProblem instance and load data from a file
     fp = FleetProblem()
     file_path = 'test.txt'
 
+    # Calculate the total delay for the given solution and print it
     with open(file_path, 'r') as fh:
         fp.load(fh)
 
