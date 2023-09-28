@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import search
-
 
 # Define a class for solving the Fleet Problem
-class FleetProblem(search.Problem):
+class FleetProblem:
     """A class for solving the Fleet Problem.
 
     Attributes:
@@ -62,7 +60,7 @@ class FleetProblem(search.Problem):
                 elif current_mode == 'R':
                     self.requests.add_request(words)  # Add request data
                 elif current_mode == 'V':
-                    self.vehicles.add_vehicle(int(words[0]))  # Add vehicle data
+                    self.vehicles.add_vehicle(words)  # Add vehicle data
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
 
@@ -234,21 +232,3 @@ class Vehicles:
         for vehicle in self.vehicles:
             print(vehicle)
         print()
-
-
-if __name__ == '__main__':
-    # Define a list of actions to perform
-    sols = [('Pickup', 0, 3, 30.0), ('Pickup', 1, 4, 25.0), ('Pickup', 1, 0, 25.0),
-            ('Dropoff', 1, 4, 75.0), ('Dropoff', 1, 0, 75.0), ('Pickup', 0, 2, 30.0),
-            ('Dropoff', 0, 3, 80.0), ('Pickup', 0, 1, 80.0), ('Dropoff', 0, 1, 140.0),
-            ('Dropoff', 0, 2, 140.0)]
-
-    # Create a FleetProblem instance and load data from a file
-    fp = FleetProblem()
-    file_path = 'test.txt'
-
-    # Calculate the total delay for the given solution and print it
-    with open(file_path, 'r') as fh:
-        fp.load(fh)
-
-    print('Total delay:', fp.cost(sols))
