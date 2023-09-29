@@ -103,7 +103,7 @@ class Graph:
         """
         self.num_vertices = num_vertices
         self.directed = directed
-        self.graph = [[0] * num_vertices for _ in range(num_vertices)]
+        self.graph = [[0.0] * num_vertices for _ in range(num_vertices)]
 
     def add_edge(self, u, v, w):
         """Adds an edge to the graph.
@@ -113,6 +113,12 @@ class Graph:
             v (int): The index of the second vertex.
             w (float): The weight of the edge.
         """
+
+        if not isinstance(u, int) or not isinstance(v, int):
+            raise ValueError("u and v must be integers")
+        if not isinstance(w, float):
+            raise ValueError("w must be a float")
+
         self.graph[u][v] = w
         if not self.directed:
             self.graph[v][u] = w
