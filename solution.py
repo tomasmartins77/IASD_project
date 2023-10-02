@@ -21,6 +21,8 @@ class FleetProblem(search.Problem):
         self.graph = None
         self.requests = None
         self.vehicles = None
+        self.initial = []
+        self.number_of_nodes = 0
 
     def load(self, file_content):
         """Loads data from a file into the FleetProblem instance.
@@ -44,6 +46,7 @@ class FleetProblem(search.Problem):
 
             if words[0] == 'P':
                 P = int(words[1])  # Get the number of vertices
+                self.number_of_nodes = P
                 self.graph = Graph(P)  # Initialize the graph
                 current_mode = 'P'  # Set the mode to process graph data
             elif words[0] == 'R':
@@ -62,10 +65,15 @@ class FleetProblem(search.Problem):
                     P -= 1
                 elif current_mode == 'R':
                     self.requests.add_request(words)  # Add request data
+                    self.initialize(words)
                 elif current_mode == 'V':
-                    self.vehicles.add_vehicle(words)  # Add vehicle data
+                    self.vehicles.add_vehicle(words[0])  # Add vehicle data
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
+
+        print("Initial state:")
+        print(self.initial)
+        print()
 
     def cost(self, sol):
         """Calculates the cost of a solution.
@@ -86,6 +94,64 @@ class FleetProblem(search.Problem):
                 total_cost += td - t - Tod  # Calculate cost based on the solution
 
         return total_cost
+
+    def initialize(self, words):
+        """Initializes the problem.
+
+        Args:
+            words (list): The words representing the request.
+        """
+        self.initial.append([0, 0, int(words[1]), int(words[3])])
+
+    def actions(self, state):
+        """Gets the actions that can be performed from a given state.
+
+        Args:
+            state (list): The state to get the actions for.
+
+        Returns:
+            list: The list of actions that can be performed from the given state.
+        """
+        actions_list = []
+        state = [0, 0, 1, 1]
+
+        for i in range(self.number_of_nodes):
+            edge = self.graph.get_edge(state[2] - 1, i)
+            if edge != 0.0:
+                actions_list.append([state[0] + edge, i, state[2], state[3]])
+
+        return actions_list
+
+    def result(self, state, action):
+        """Gets the result of performing an action on a given state.
+
+        Args:
+            state (list): The state to perform the action on.
+            action (list): The action to perform.
+
+        Returns:
+            list: The resulting state.
+        """
+        return [action[0], action[1], state[2], state[3]]
+
+    def goal_test(self, state):
+        """Checks if a given state is a goal state.
+
+        Args:
+            state (list): The state to check.
+
+        Returns:
+            bool: True if the state is a goal state, False otherwise.
+        """
+        return state[1] == state[2]
+
+    def solve(self):
+        """Solves the Fleet Problem.
+
+        Returns:
+            list: The solution to the problem.
+        """
+        search.breadth_first_graph_search(self)
 
 
 # Define a class for representing a graph
@@ -224,7 +290,7 @@ class Vehicles:
         Args:
             seats (list): The seats representing the vehicle.
         """
-        self.vehicles.append(seats)
+        self.vehicles.append(int(seats))
 
     def get_vehicle(self, index):
         """Gets a vehicle by index.
@@ -243,3 +309,17 @@ class Vehicles:
         for vehicle in self.vehicles:
             print(vehicle)
         print()
+
+
+if __name__ == '__main__':
+    fp = FleetProblem([])
+    file_path = 'test.txt'
+    with open(file_path) as f:
+        fp.load(f.readlines())
+
+    fp.graph.print_graph()
+    fp.requests.print_requests()
+    fp.vehicles.print_vehicles()
+    actions = fp.actions(fp.initial)
+    states = []
+    fp.result(fp.initial[0], actions[0])
