@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+import search
+
 
 # Define a class for solving the Fleet Problem
-class FleetProblem:
+class FleetProblem(search.Problem):
     """A class for solving the Fleet Problem.
 
     Attributes:
@@ -12,8 +14,9 @@ class FleetProblem:
         vehicles (Vehicles): The vehicle data.
     """
 
-    def __init__(self):
+    def __init__(self, initial):
         """Initializes a FleetProblem instance."""
+        super().__init__(initial)
         self.sol = None
         self.graph = None
         self.requests = None
@@ -94,6 +97,7 @@ class Graph:
         directed (bool): Whether the graph is directed or not.
         graph (list): The adjacency matrix representing the graph.
     """
+
     def __init__(self, num_vertices, directed=False):
         """Initializes a Graph instance.
 
@@ -150,6 +154,7 @@ class Requests:
         num_requests (int): The number of requests.
         requests (list): The list of requests.
     """
+
     def __init__(self, num_requests):
         """Initializes a Requests instance.
 
