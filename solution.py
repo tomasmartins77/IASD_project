@@ -113,13 +113,14 @@ class FleetProblem(search.Problem):
             list: The list of actions that can be performed from the given state.
         """
         actions_list = []
-        state = [0, 0, 1, 1]
 
         for i in range(self.number_of_nodes):
             edge = self.graph.get_edge(state[2] - 1, i)
             if edge != 0.0:
                 actions_list.append([state[0] + edge, i, state[2], state[3]])
-
+        print("Actions:")
+        print(actions_list)
+        print()
         return actions_list
 
     def result(self, state, action):
@@ -132,6 +133,9 @@ class FleetProblem(search.Problem):
         Returns:
             list: The resulting state.
         """
+        print("Result:")
+        print([action[0], action[1], state[2], state[3]])
+        print()
         return [action[0], action[1], state[2], state[3]]
 
     def goal_test(self, state):
@@ -320,6 +324,5 @@ if __name__ == '__main__':
     fp.graph.print_graph()
     fp.requests.print_requests()
     fp.vehicles.print_vehicles()
-    actions = fp.actions(fp.initial)
-    states = []
+    actions = fp.actions(fp.initial[0])
     fp.result(fp.initial[0], actions[0])
