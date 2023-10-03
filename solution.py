@@ -115,7 +115,10 @@ class FleetProblem(search.Problem):
         for i in range(self.number_of_nodes):
             edge = self.graph.get_edge(state[2] - 1, i)
             if edge != 0.0:
-                actions_list.append([state[0] + edge, i, state[2], state[3]])
+                if state[0] < edge:
+                    actions_list.append([edge, i, state[2], state[3]])
+                else:
+                    actions_list.append([state[0], i, state[2], state[3]])
 
         print("Actions:\n", actions_list, "\n")
         return actions_list
