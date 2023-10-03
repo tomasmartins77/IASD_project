@@ -71,9 +71,7 @@ class FleetProblem(search.Problem):
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
 
-        print("Initial state:")
-        print(self.initial)
-        print()
+        print("Initial state:\n", self.initial, "\n")
 
     def cost(self, sol):
         """Calculates the cost of a solution.
@@ -118,9 +116,8 @@ class FleetProblem(search.Problem):
             edge = self.graph.get_edge(state[2] - 1, i)
             if edge != 0.0:
                 actions_list.append([state[0] + edge, i, state[2], state[3]])
-        print("Actions:")
-        print(actions_list)
-        print()
+
+        print("Actions:\n", actions_list, "\n")
         return actions_list
 
     def result(self, state, action):
@@ -133,9 +130,7 @@ class FleetProblem(search.Problem):
         Returns:
             list: The resulting state.
         """
-        print("Result:")
-        print([action[0], action[1], state[2], state[3]])
-        print()
+        print("Result:\n", [action[0], action[1], state[2], state[3]], "\n")
         return [action[0], action[1], state[2], state[3]]
 
     def goal_test(self, state):
