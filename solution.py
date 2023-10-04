@@ -65,12 +65,13 @@ class FleetProblem(search.Problem):
                     P -= 1
                 elif current_mode == 'R':
                     self.requests.add_request(words)  # Add request data
-                    self.initialize(words)
+
                 elif current_mode == 'V':
                     self.vehicles.add_vehicle(words[0])  # Add vehicle data
+
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
-
+        self.initialize()
         print("Initial state:\n", self.initial, "\n")
 
     def cost(self, sol):
@@ -93,13 +94,11 @@ class FleetProblem(search.Problem):
 
         return total_cost
 
-    def initialize(self, words):
+    def initialize(self):
         """Initializes the problem.
-
-        Args:
-            words (list): The words representing the request.
         """
-        self.initial.append([0, 0, int(words[1]), int(words[3])])
+        self.initial = [0, ['M'] * self.vehicles.num_vehicles, [0] * self.vehicles.num_vehicles,
+                        [0] * self.vehicles.num_vehicles, [[0]] * self.vehicles.num_vehicles]
 
     def actions(self, state):
         """Gets the actions that can be performed from a given state.
@@ -261,6 +260,22 @@ class Requests:
         """
         return self.requests[index]
 
+    def pick_request(self, index):
+        """Picks up a request.
+
+        Args:
+            index (int): The index of the request.
+        """
+        self.requests[index][1] = -1
+
+    def drop_request(self, index):
+        """Drops off a request.
+
+        Args:
+            index (int): The index of the request.
+        """
+        self.requests[index][2] = -1
+
     def print_requests(self):
         """Prints the list of requests."""
         print('Requests:')
@@ -292,7 +307,7 @@ class Vehicles:
         Args:
             seats (list): The seats representing the vehicle.
         """
-        self.vehicles.append(int(seats))
+        self.vehicles.append([0, int(seats)])
 
     def get_vehicle(self, index):
         """Gets a vehicle by index.
@@ -304,6 +319,34 @@ class Vehicles:
             int: The vehicle.
         """
         return self.vehicles[index]
+
+    def add_passengers(self, index, n_passengers):
+        """Adds a passenger to a vehicle.
+
+        Args:
+            :param index: index of the vehicle
+            :param n_passengers: number of passengers to add
+        """
+        if n_passengers + self.vehicles[index][0] > self.vehicles[index][1]:
+            raise ValueError("Not enough seats")
+        elif n_passengers < 0:
+            raise ValueError("Number of passengers must be positive")
+        else:
+            self.vehicles[index][0] += n_passengers
+
+    def remove_passengers(self, index, n_passengers):
+        """Removes a passenger from a vehicle.
+
+        Args:
+            :param index: index of the vehicle
+            :param n_passengers: number of passengers to remove
+        """
+        if self.vehicles[index][0] - n_passengers < 0:
+            raise ValueError("to many passengers to remove")
+        elif n_passengers < 0:
+            raise ValueError("Number of passengers must be positive")
+        else:
+            self.vehicles[index][0] -= n_passengers
 
     def print_vehicles(self):
         """Prints the list of vehicles."""
@@ -322,5 +365,3 @@ if __name__ == '__main__':
     fp.graph.print_graph()
     fp.requests.print_requests()
     fp.vehicles.print_vehicles()
-    actions = fp.actions(fp.initial[0])
-    fp.result(fp.initial[0], actions[0])
