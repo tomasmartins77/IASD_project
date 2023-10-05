@@ -97,8 +97,7 @@ class FleetProblem(search.Problem):
     def initialize(self):
         """Initializes the problem.
         """
-        self.initial = [0, ['M'] * self.vehicles.num_vehicles, [0] * self.vehicles.num_vehicles,
-                        [0] * self.vehicles.num_vehicles, [[0]] * self.vehicles.num_vehicles]
+        self.initial = [0, 0.0, []]
 
     def actions(self, state):
         """Gets the actions that can be performed from a given state.
@@ -110,17 +109,42 @@ class FleetProblem(search.Problem):
             list: The list of actions that can be performed from the given state.
         """
         actions_list = []
+        pickups = self.requests.get_pickups(state[0])  # Get the list of pickups in a certain node
+        dropoffs = self.requests.get_dropoffs(state[0])  # Get the list of dropoffs in a certain node
 
         for i in range(self.number_of_nodes):
-            edge = self.graph.get_edge(state[2] - 1, i)
-            if edge != 0.0:
-                if state[0] < edge:
-                    actions_list.append([edge, i, state[2], state[3]])
-                else:
-                    actions_list.append([state[0], i, state[2], state[3]])
+            if i != state[0]:
+                actions_list.append(self.choose_move(i, pickups, dropoffs, state))
 
-        print("Actions:\n", actions_list, "\n")
         return actions_list
+
+    def choose_move(self, node, pickups, dropoffs, state):
+        """Chooses a move action.
+
+        Args:
+            node (int): The node to move to.
+            pickups (list): The list of pickups to choose from.
+            dropoffs (list): The list of dropoffs to choose from.
+            state (list): The state to move from.
+
+        Returns:
+            list: The chosen move action.
+        """
+
+        # if there is nothing to do, move to the next node
+        best_move = ['Move', node, state[1] + self.graph.get_edge(state[0], node)]
+
+        print("Pickups: ", pickups, "\nDropoffs: ", dropoffs, "\n")
+
+        for pickup in pickups:
+            if self.requests.get_request(pickup)[0] < self.requests.get_request(best_move[1])[0]:
+                best_move = ['Pickup', pickup, state[1] + self.requests.get_request(pickup)[0]]
+
+        for dropoff in dropoffs:
+            if self.requests.get_request(dropoff)[0] < self.requests.get_request(best_move[1])[0]:
+                best_move = ['Dropoff', dropoff, state[1] + self.requests.get_request(dropoff)[0]]
+
+        return best_move
 
     def result(self, state, action):
         """Gets the result of performing an action on a given state.
@@ -132,8 +156,53 @@ class FleetProblem(search.Problem):
         Returns:
             list: The resulting state.
         """
-        print("Result:\n", [action[0], action[1], state[2], state[3]], "\n")
-        return [action[0], action[1], state[2], state[3]]
+        if action[0] == 'Pickup':
+            self.pickup(state, action)
+        elif action[0] == 'Dropoff':
+            self.dropoff(state, action)
+        else:  # Move
+            state[1] = action[2]  # Update time
+            state[0] = action[1]  # Update location
+
+        print("Action: ", action, "\nState: ", state, "\n")
+        return state
+
+    def pickup(self, state, action):
+        """Picks up a given request.
+
+        Args:
+            state (list): The state to pick up the request from.
+            action (list): The action to execute.
+        """
+        action_vehicle_spot = 0  # FALTA ADICIONAR O INDEX DO VEICULO NA ACTION
+
+        added_passengers = self.requests.get_request(action[1])[3]  # Get the number of passengers to add
+        if not self.vehicles.is_full(action_vehicle_spot, added_passengers):
+            self.vehicles.add_passengers(action_vehicle_spot, added_passengers)  # Add passengers to vehicle
+
+        state[2].append(action[1])  # Add the request to the list of active requests
+        self.requests.pick_request(action[1])  # Pick up the request
+        state[1] = action[2]  # Update time
+
+        return state
+
+    def dropoff(self, state, action):
+        """Drops off a given request.
+
+        Args:
+            state (list): The state to drop off the request from.
+            action (list): The action to drop off.
+        """
+        action_vehicle_spot = 0
+
+        removed_passengers = self.requests.get_request(action[1])[3]  # Get the number of passengers to remove
+        self.vehicles.remove_passengers(action_vehicle_spot, removed_passengers)  # Remove passengers from vehicle
+        state[2].remove(action[1])  # Remove the request from the list of active requests
+        self.requests.drop_request(action[1])  # Drop off the request
+        state[1] = action[2]  # Update time
+        self.requests.num_requests -= 1  # Update the number of total requests
+
+        return state
 
     def goal_test(self, state):
         """Checks if a given state is a goal state.
@@ -144,7 +213,8 @@ class FleetProblem(search.Problem):
         Returns:
             bool: True if the state is a goal state, False otherwise.
         """
-        return state[1] == state[2]
+        print(self.requests.num_requests)
+        return self.requests.num_requests == 0  # Check if there are no more requests
 
     def solve(self):
         """Solves the Fleet Problem.
@@ -152,7 +222,7 @@ class FleetProblem(search.Problem):
         Returns:
             list: The solution to the problem.
         """
-        search.breadth_first_graph_search(self)
+        return search.breadth_first_tree_search(self)
 
 
 # Define a class for representing a graph
@@ -260,6 +330,38 @@ class Requests:
         """
         return self.requests[index]
 
+    def get_pickups(self, node):
+        """Gets the pickup location of a request.
+
+        Args:
+            node (int): The requests for a certain node.
+
+        Returns:
+            int: The pickup location.
+        """
+        pickups = []
+        for i in range(self.num_requests):
+            request = self.get_request(i)
+            if request[1] == node and request[1] != -1:
+                pickups.append(i)
+        return pickups
+
+    def get_dropoffs(self, node):
+        """Gets the dropoff location of a request.
+
+        Args:
+            node (int): The requests for a certain node.
+
+        Returns:
+            int: The dropoff location.
+        """
+        dropoffs = []
+        for i in range(self.num_requests):
+            request = self.get_request(i)
+            if request[2] == node and request[1] == -1 and request[2] != -1:
+                dropoffs.append(i)
+        return dropoffs
+
     def pick_request(self, index):
         """Picks up a request.
 
@@ -275,6 +377,7 @@ class Requests:
             index (int): The index of the request.
         """
         self.requests[index][2] = -1
+        self.num_requests -= 1
 
     def print_requests(self):
         """Prints the list of requests."""
@@ -320,6 +423,18 @@ class Vehicles:
         """
         return self.vehicles[index]
 
+    def is_full(self, index, n_passengers):
+        """Checks if a vehicle is full.
+
+        Args:
+            index (int): The index of the vehicle.
+            n_passengers (int): The number of passengers to add.
+
+        Returns:
+            bool: True if the vehicle is full, False otherwise.
+        """
+        return n_passengers + self.vehicles[index][0] > self.vehicles[index][1]
+
     def add_passengers(self, index, n_passengers):
         """Adds a passenger to a vehicle.
 
@@ -327,12 +442,7 @@ class Vehicles:
             :param index: index of the vehicle
             :param n_passengers: number of passengers to add
         """
-        if n_passengers + self.vehicles[index][0] > self.vehicles[index][1]:
-            raise ValueError("Not enough seats")
-        elif n_passengers < 0:
-            raise ValueError("Number of passengers must be positive")
-        else:
-            self.vehicles[index][0] += n_passengers
+        self.vehicles[index][0] += n_passengers
 
     def remove_passengers(self, index, n_passengers):
         """Removes a passenger from a vehicle.
@@ -341,12 +451,7 @@ class Vehicles:
             :param index: index of the vehicle
             :param n_passengers: number of passengers to remove
         """
-        if self.vehicles[index][0] - n_passengers < 0:
-            raise ValueError("to many passengers to remove")
-        elif n_passengers < 0:
-            raise ValueError("Number of passengers must be positive")
-        else:
-            self.vehicles[index][0] -= n_passengers
+        self.vehicles[index][0] -= n_passengers
 
     def print_vehicles(self):
         """Prints the list of vehicles."""
@@ -365,3 +470,6 @@ if __name__ == '__main__':
     fp.graph.print_graph()
     fp.requests.print_requests()
     fp.vehicles.print_vehicles()
+
+    solution = fp.solve()
+    print("Solution:\n", solution, "\n")
