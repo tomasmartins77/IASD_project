@@ -136,13 +136,13 @@ class FleetProblem(search.Problem):
 
         print("Pickups: ", pickups, "\nDropoffs: ", dropoffs, "\n")
 
-        for pickup in pickups:
-            if self.requests.get_request(pickup)[0] < self.requests.get_request(best_move[1])[0]:
-                best_move = ['Pickup', pickup, state[1] + self.requests.get_request(pickup)[0]]
+        for pickup_index in pickups:  # NAO SEI!!!!!!!!!!!!!!!!!!
+            if not self.vehicles.is_full(0, self.requests.get_request(pickup_index)[3]):
+                pass
+            pass
 
-        for dropoff in dropoffs:
-            if self.requests.get_request(dropoff)[0] < self.requests.get_request(best_move[1])[0]:
-                best_move = ['Dropoff', dropoff, state[1] + self.requests.get_request(dropoff)[0]]
+        for dropoff in dropoffs:  # NAO SEI!!!!!!!!!!!!!!!!
+            pass
 
         return best_move
 
