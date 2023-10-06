@@ -104,7 +104,67 @@ class FleetProblem(search.Problem):
         self.initial = [self.vehicles, self.requests]
 
     def actions(self, state):
-        pass
+        """Gets the actions that can be performed on a given state.
+
+            Args:
+                state (list): The state to get the actions from.
+        """
+        actions = []
+
+        # Get the list of requests and vehicles from the state
+        vehicles = state[0]
+        requests = state[1]
+        locations = []
+        aux = []
+        aux2 = []
+        already_pickup = []
+        already_dropoff = []
+
+        for vehicle in vehicles:
+            locations.append(vehicle.get_location())
+
+        for i in range(len(vehicles)):
+            vehicle = vehicles[i]
+            current_location = vehicle.get_location()
+
+            # Get the list of possible moves
+            moves = self.get_moves(current_location)
+
+            # Get the list of possible pickups
+            pickups = self.get_pickups(current_location)
+
+            # Get the list of possible dropoffs
+            dropoffs = self.get_dropoffs(current_location)
+
+            print(already_pickup)
+            print()
+            # Get the list of possible actions
+            for pickup in pickups:
+                if vehicle.becomes_full(requests[pickup].get_num_passengers()) and pickup not in already_pickup:
+                    aux.append(pickup)
+                else:
+                    continue
+            if aux:
+                for j in aux:
+                    already_pickup.append(j)
+                actions.append(('Pickup', i, aux))
+
+            for dropoff in dropoffs:
+                if dropoff not in already_dropoff:
+                    aux2.append(dropoff)
+            if aux2:
+                for j in aux2:
+                    already_dropoff.append(j)
+                actions.append(('Dropoff', i, dropoffs))
+
+            if moves:
+                actions.append(('Move', i, moves))
+
+            aux = []
+            aux2 = []
+
+        print(actions)
+        return actions
 
     def result(self, state, action):
         """Gets the result of an action.
@@ -130,6 +190,9 @@ class FleetProblem(search.Problem):
         """
         action_vehicle = state[0][action[1]]
 
+        if type(action[2]) == int:
+            action[2] = [action[2]]
+
         for i in action[2]:
             request = state[1][i].get_request()
 
@@ -153,6 +216,9 @@ class FleetProblem(search.Problem):
         """
         action_vehicle = state[0][action[1]]
 
+        if type(action[2]) == int:
+            action[2] = [action[2]]
+
         for i in action[2]:
             request = state[1][i].get_request()
 
@@ -173,12 +239,14 @@ class FleetProblem(search.Problem):
                 action (list): The action to perform.
         """
         vehicle = state[0][action[1]]
-
         curr_node = vehicle.get_location()
-        dest_node = action[2]
 
-        vehicle.add_time(self.graph.get_edge(curr_node, dest_node))
-        vehicle.set_location(action[2])
+        if type(action[2]) == int:
+            action[2] = [action[2]]
+
+        for dest_node in action[2]:
+            vehicle.add_time(self.graph.get_edge(curr_node, dest_node))
+            vehicle.set_location(dest_node)
 
         return state
 
@@ -212,6 +280,28 @@ class FleetProblem(search.Problem):
             list: The solution to the problem.
         """
         return search.breadth_first_tree_search(self)
+
+    def get_moves(self, node):
+        """Gets the list of moves from a given node.
+
+        Args:
+            node (int): The node to get the moves from.
+
+        Returns:
+            list: The list of moves from the given node.
+        """
+        moves = []
+        for i in range(self.number_of_nodes):
+            if self.get_pickups(node):
+                continue
+            elif self.get_dropoffs(node):
+                continue
+            elif i == node:
+                continue
+            else:
+                moves.append(i)
+
+        return moves
 
     def get_pickups(self, node):
         """Gets the list of pickups in a given node.
@@ -468,26 +558,6 @@ if __name__ == '__main__':
     with open(file_path) as f:
         fp.load(f.readlines())
 
-    fp.move(fp.initial, ['Move', 1, 1])
-
-    fp.pickup(fp.initial, ['Pickup', 1, [0, 4]])
-
-    fp.move(fp.initial, ['Move', 0, 2])
-
-    fp.pickup(fp.initial, ['Pickup', 0, [3, 2]])
-
-    fp.move(fp.initial, ['Move', 1, 2])
-
-    fp.dropoff(fp.initial, ['Dropoff', 1, [0, 4]])
-
-    fp.move(fp.initial, ['Move', 0, 1])
-
-    fp.dropoff(fp.initial, ['Dropoff', 0, [3]])
-
-    fp.pickup(fp.initial, ['Pickup', 0, [1]])
-
-    fp.move(fp.initial, ['Move', 0, 3])
-
-    fp.dropoff(fp.initial, ['Dropoff', 0, [1, 2]])
+    fp.solve()
 
     print(fp.sol)
