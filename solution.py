@@ -4,6 +4,13 @@ import search
 
 
 # Define a class for solving the Fleet Problem
+def move(state, action):
+    """Moves a vehicle to a given node."""
+    state[0].set_location(action[1])
+    state[0].add_time(action[2])
+    pass
+
+
 class FleetProblem(search.Problem):
     """A class for solving the Fleet Problem.
 
@@ -19,10 +26,11 @@ class FleetProblem(search.Problem):
         super().__init__(initial)
         self.sol = None
         self.graph = None
-        self.requests = None
-        self.vehicles = None
-        self.initial = []
+        self.requests = []
+        self.vehicles = []
+        self.initial = None
         self.number_of_nodes = 0
+        self.total_requests = 0
 
     def load(self, file_content):
         """Loads data from a file into the FleetProblem instance.
@@ -37,6 +45,8 @@ class FleetProblem(search.Problem):
         current_mode = None  # Track the current mode (P, R, or V)
         row = 0  # Track the current row being processed
         P = 0
+        number_of_requests = 0
+        number_of_vehicles = 0
 
         for line in file_content:
             words = line.split()  # Split the line into words
@@ -50,10 +60,11 @@ class FleetProblem(search.Problem):
                 self.graph = Graph(P)  # Initialize the graph
                 current_mode = 'P'  # Set the mode to process graph data
             elif words[0] == 'R':
-                self.requests = Requests(int(words[1]))  # Initialize requests
+                number_of_requests = int(words[1])  # Initialize requests
+                self.total_requests = number_of_requests
                 current_mode = 'R'  # Set the mode to process request data
             elif words[0] == 'V':
-                self.vehicles = Vehicles(int(words[1]))  # Initialize vehicles
+                number_of_vehicles = int(words[1])  # Initialize vehicles
                 current_mode = 'V'  # Set the mode to process vehicle data
             else:
                 if current_mode == 'P':
@@ -64,15 +75,16 @@ class FleetProblem(search.Problem):
                     row += 1
                     P -= 1
                 elif current_mode == 'R':
-                    self.requests.add_request(words)  # Add request data
-
+                    self.requests.append(Request(number_of_requests - 1, words))  # Add request data
+                    number_of_requests -= 1
                 elif current_mode == 'V':
-                    self.vehicles.add_vehicle(words[0])  # Add vehicle data
-
+                    new_vehicle = Vehicle(number_of_vehicles - 1, int(words[0]))
+                    self.vehicles.append(new_vehicle)  # Add vehicle data
+                    number_of_vehicles -= 1  # Add vehicle data
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
+
         self.initialize()
-        print("Initial state:\n", self.initial, "\n")
 
     def cost(self, sol):
         """Calculates the cost of a solution.
@@ -86,123 +98,29 @@ class FleetProblem(search.Problem):
         total_cost = 0
         for action in sol:
             if action[0] == 'Dropoff':
-                request = self.requests.get_request(action[2])
+                request = self.requests[action[2]].get_request()
                 td = action[3]
-                t = request[0]
-                Tod = self.graph.get_edge(request[1], request[2])
+                t = request.get_pickup_time()
+                Tod = self.graph.get_edge(request.pickup_location, request.dropoff_location)
                 total_cost += td - t - Tod  # Calculate cost based on the solution
 
         return total_cost
 
     def initialize(self):
-        """Initializes the problem.
-        """
-        self.initial = [0, 0.0, []]
+        """Initializes the Fleet Problem."""
+        self.initial = [self.vehicles, self.requests]
 
     def actions(self, state):
-        """Gets the actions that can be performed from a given state.
-
-        Args:
-            state (list): The state to get the actions for.
-
-        Returns:
-            list: The list of actions that can be performed from the given state.
-        """
-        actions_list = []
-        pickups = self.requests.get_pickups(state[0])  # Get the list of pickups in a certain node
-        dropoffs = self.requests.get_dropoffs(state[0])  # Get the list of dropoffs in a certain node
-
-        for i in range(self.number_of_nodes):
-            if i != state[0]:
-                actions_list.append(self.choose_move(i, pickups, dropoffs, state))
-
-        return actions_list
-
-    def choose_move(self, node, pickups, dropoffs, state):
-        """Chooses a move action.
-
-        Args:
-            node (int): The node to move to.
-            pickups (list): The list of pickups to choose from.
-            dropoffs (list): The list of dropoffs to choose from.
-            state (list): The state to move from.
-
-        Returns:
-            list: The chosen move action.
-        """
-
-        # if there is nothing to do, move to the next node
-        best_move = ['Move', node, state[1] + self.graph.get_edge(state[0], node)]
-
-        print("Pickups: ", pickups, "\nDropoffs: ", dropoffs, "\n")
-
-        for pickup_index in pickups:  # NAO SEI!!!!!!!!!!!!!!!!!!
-            if not self.vehicles.is_full(0, self.requests.get_request(pickup_index)[3]):
-                pass
-            pass
-
-        for dropoff in dropoffs:  # NAO SEI!!!!!!!!!!!!!!!!
-            pass
-
-        return best_move
+        pass
 
     def result(self, state, action):
-        """Gets the result of performing an action on a given state.
-
-        Args:
-            state (list): The state to perform the action on.
-            action (list): The action to perform.
-
-        Returns:
-            list: The resulting state.
-        """
-        if action[0] == 'Pickup':
-            self.pickup(state, action)
-        elif action[0] == 'Dropoff':
-            self.dropoff(state, action)
-        else:  # Move
-            state[1] = action[2]  # Update time
-            state[0] = action[1]  # Update location
-
-        print("Action: ", action, "\nState: ", state, "\n")
-        return state
+        pass
 
     def pickup(self, state, action):
-        """Picks up a given request.
-
-        Args:
-            state (list): The state to pick up the request from.
-            action (list): The action to execute.
-        """
-        action_vehicle_spot = 0  # FALTA ADICIONAR O INDEX DO VEICULO NA ACTION
-
-        added_passengers = self.requests.get_request(action[1])[3]  # Get the number of passengers to add
-        if not self.vehicles.is_full(action_vehicle_spot, added_passengers):
-            self.vehicles.add_passengers(action_vehicle_spot, added_passengers)  # Add passengers to vehicle
-
-        state[2].append(action[1])  # Add the request to the list of active requests
-        self.requests.pick_request(action[1])  # Pick up the request
-        state[1] = action[2]  # Update time
-
-        return state
+        pass
 
     def dropoff(self, state, action):
-        """Drops off a given request.
-
-        Args:
-            state (list): The state to drop off the request from.
-            action (list): The action to drop off.
-        """
-        action_vehicle_spot = 0
-
-        removed_passengers = self.requests.get_request(action[1])[3]  # Get the number of passengers to remove
-        self.vehicles.remove_passengers(action_vehicle_spot, removed_passengers)  # Remove passengers from vehicle
-        state[2].remove(action[1])  # Remove the request from the list of active requests
-        self.requests.drop_request(action[1])  # Drop off the request
-        state[1] = action[2]  # Update time
-        self.requests.num_requests -= 1  # Update the number of total requests
-
-        return state
+        pass
 
     def goal_test(self, state):
         """Checks if a given state is a goal state.
@@ -213,8 +131,8 @@ class FleetProblem(search.Problem):
         Returns:
             bool: True if the state is a goal state, False otherwise.
         """
-        print(self.requests.num_requests)
-        return self.requests.num_requests == 0  # Check if there are no more requests
+        print(self.total_requests)
+        return self.total_requests == 0  # Check if there are no more requests
 
     def solve(self):
         """Solves the Fleet Problem.
@@ -223,6 +141,50 @@ class FleetProblem(search.Problem):
             list: The solution to the problem.
         """
         return search.breadth_first_tree_search(self)
+
+    def get_pickups(self, node):
+        """Gets the list of pickups in a given node.
+
+        Args:
+            node (int): The node to get the pickups from.
+
+        Returns:
+            list: The list of pickups in the given node.
+        """
+        pickups = []
+        for request in self.requests:
+            if request.get_pickup() == node and request.status == 'waiting':
+                pickups.append(request.get_index())
+        return pickups
+
+    def get_dropoffs(self, node):
+        """Gets the list of dropoffs in a given node.
+
+        Args:
+            node (int): The node to get the dropoffs from.
+
+        Returns:
+            list: The list of dropoffs in the given node.
+        """
+        dropoffs = []
+        for request in self.requests:
+            if request.get_dropoff() == node and request.status == 'traveling':
+                dropoffs.append(request.get_index())
+        return dropoffs
+
+    def print_vehicles(self):
+        """Prints the vehicles."""
+        print('Vehicles:')
+        for vehicle in self.vehicles:
+            vehicle.print_vehicle()
+        print()
+
+    def print_requests(self):
+        """Prints the requests."""
+        print('Requests:')
+        for request in self.requests:
+            request.print_request()
+        print()
 
 
 # Define a class for representing a graph
@@ -284,181 +246,134 @@ class Graph:
         print()
 
 
-class Requests:
-    """A class for representing requests.
+class Request:
+    """A class for representing a request.
 
-    Attributes:
-        num_requests (int): The number of requests.
-        requests (list): The list of requests.
+        Attributes:
+            request_index (int): The index of the request.
+            pickup_time (float): The time at which the request is made.
+            pickup_location (int): The location of the pickup.
+            dropoff_location (int): The location of the dropoff.
+            n_passengers (int): The number of passengers.
+            status (str): The status of the request.
     """
 
-    def __init__(self, num_requests):
-        """Initializes a Requests instance.
+    def __init__(self, request_index, request):
+        self.request_index = request_index
+        self.pickup_time = float(request[0])
+        self.pickup_location = int(request[1])
+        self.dropoff_location = int(request[2])
+        self.n_passengers = int(request[3])
+        self.status = 'waiting'
 
-        Args:
-            num_requests (int): The number of requests.
-        """
-        self.num_requests = num_requests
-        self.requests = []
+    def get_request(self):
+        """Gets the request."""
+        return self
 
-    def add_request(self, words):
-        """Adds a request to the list of requests.
+    def get_index(self):
+        """Gets the index of the request."""
+        return self.request_index
 
-        Args:
-            words (list): The words representing the request.
-        """
-        value = 0
-        request = []
-        for word in words:
-            try:
-                value = float(word)
-                if value.is_integer():
-                    value = int(value)
-            except ValueError:
-                pass
-            request.append(value)
-        self.requests.append(request)
+    def get_pickup_time(self):
+        """Gets the pickup time."""
+        return self.pickup_time
 
-    def get_request(self, index):
-        """Gets a request by index.
+    def get_pickup(self):
+        """Gets the pickup location."""
+        return self.pickup_location
 
-        Args:
-            index (int): The index of the request.
+    def get_dropoff(self):
+        """Gets the dropoff location."""
+        return self.dropoff_location
 
-        Returns:
-            list: The request.
-        """
-        return self.requests[index]
+    def get_num_passengers(self):
+        """Gets the number of passengers."""
+        return self.n_passengers
 
-    def get_pickups(self, node):
-        """Gets the pickup location of a request.
+    def pick_request(self):
+        """Picks up a request."""
+        self.status = 'traveling'
 
-        Args:
-            node (int): The requests for a certain node.
+    def drop_request(self):
+        """Drops off a request."""
+        self.status = 'completed'
 
-        Returns:
-            int: The pickup location.
-        """
-        pickups = []
-        for i in range(self.num_requests):
-            request = self.get_request(i)
-            if request[1] == node and request[1] != -1:
-                pickups.append(i)
-        return pickups
-
-    def get_dropoffs(self, node):
-        """Gets the dropoff location of a request.
-
-        Args:
-            node (int): The requests for a certain node.
-
-        Returns:
-            int: The dropoff location.
-        """
-        dropoffs = []
-        for i in range(self.num_requests):
-            request = self.get_request(i)
-            if request[2] == node and request[1] == -1 and request[2] != -1:
-                dropoffs.append(i)
-        return dropoffs
-
-    def pick_request(self, index):
-        """Picks up a request.
-
-        Args:
-            index (int): The index of the request.
-        """
-        self.requests[index][1] = -1
-
-    def drop_request(self, index):
-        """Drops off a request.
-
-        Args:
-            index (int): The index of the request.
-        """
-        self.requests[index][2] = -1
-        self.num_requests -= 1
-
-    def print_requests(self):
-        """Prints the list of requests."""
-        print('Requests:')
-        for request in self.requests:
-            print(request)
-        print()
+    def print_request(self):
+        print('R: ', self.request_index, 'PickT: ', self.pickup_time, 'PickL: ',
+              self.pickup_location, 'DropL: ', self.dropoff_location, 'NumP: ',
+              self.n_passengers, 'Stat: ', self.status)
 
 
-class Vehicles:
-    """A class for representing vehicles.
+class Vehicle:
+    """A class for representing a vehicle.
 
-    Attributes:
-        num_vehicles (int): The number of vehicles.
-        vehicles (list): The list of vehicles.
+        Attributes:
+            vehicle_index (int): The index of the vehicle.
+            current_location (int): The current location of the vehicle.
+            occupancy (int): The maximum occupancy of the vehicle.
+            passengers (int): The number of passengers in the vehicle.
+            current_requests (list): The list of requests currently in the vehicle.
     """
 
-    def __init__(self, num_vehicles):
-        """Initializes a Vehicles instance.
+    def __init__(self, vehicle_index, occupancy):
+        self.vehicle_index = vehicle_index
+        self.current_location = 0
+        self.occupancy = occupancy
+        self.passengers = 0
+        self.current_requests = []
+        self.current_time = 0
+
+    def get_vehicle(self):
+        """Gets a vehicle."""
+        return self
+
+    def get_index(self):
+        """Gets the index of a vehicle."""
+        return self.vehicle_index
+
+    def get_time(self):
+        """Gets the time of a vehicle."""
+        return self.current_time
+
+    def add_time(self, time):
+        """Adds time to a vehicle."""
+        self.current_time += time
+
+    def get_location(self):
+        """Gets the location of a vehicle."""
+        return self.current_location
+
+    def set_location(self, location):
+        """Sets the location of a vehicle."""
+        self.current_location = location
+
+    def get_occupancy(self):
+        """Gets the occupancy of a vehicle."""
+        return self.occupancy
+
+    def becomes_full(self, n_passengers):
+        """Checks if a vehicle becomes full after adding a given number of passengers."""
+        return self.passengers + n_passengers < self.occupancy
+
+    def add_passengers(self, n_passengers):
+        """Adds passengers to a vehicle.
 
         Args:
-            num_vehicles (int): The number of vehicles.
-        """
-        self.num_vehicles = num_vehicles
-        self.vehicles = []
-
-    def add_vehicle(self, seats):
-        """Adds a vehicle to the list of vehicles.
-
-        Args:
-            seats (list): The seats representing the vehicle.
-        """
-        self.vehicles.append([0, int(seats)])
-
-    def get_vehicle(self, index):
-        """Gets a vehicle by index.
-
-        Args:
-            index (int): The index of the vehicle.
-
-        Returns:
-            int: The vehicle.
-        """
-        return self.vehicles[index]
-
-    def is_full(self, index, n_passengers):
-        """Checks if a vehicle is full.
-
-        Args:
-            index (int): The index of the vehicle.
-            n_passengers (int): The number of passengers to add.
-
-        Returns:
-            bool: True if the vehicle is full, False otherwise.
-        """
-        return n_passengers + self.vehicles[index][0] > self.vehicles[index][1]
-
-    def add_passengers(self, index, n_passengers):
-        """Adds a passenger to a vehicle.
-
-        Args:
-            :param index: index of the vehicle
             :param n_passengers: number of passengers to add
         """
-        self.vehicles[index][0] += n_passengers
+        self.passengers += n_passengers
 
-    def remove_passengers(self, index, n_passengers):
-        """Removes a passenger from a vehicle.
+    def remove_passengers(self, n_passengers):
+        """Removes passengers from a vehicle.
 
         Args:
-            :param index: index of the vehicle
             :param n_passengers: number of passengers to remove
         """
-        self.vehicles[index][0] -= n_passengers
+        self.passengers -= n_passengers
 
-    def print_vehicles(self):
-        """Prints the list of vehicles."""
-        print('Vehicles:')
-        for vehicle in self.vehicles:
-            print(vehicle)
-        print()
+    def print_vehicle(self):
+        print('V: ', self.vehicle_index, 'CL: ', self.current_location, 'MAX: ',
+              self.occupancy, 'P: ', self.passengers, 'CurrR: ', self.current_requests)
 
 
 if __name__ == '__main__':
@@ -468,8 +383,5 @@ if __name__ == '__main__':
         fp.load(f.readlines())
 
     fp.graph.print_graph()
-    fp.requests.print_requests()
-    fp.vehicles.print_vehicles()
-
-    solution = fp.solve()
-    print("Solution:\n", solution, "\n")
+    fp.print_requests()
+    fp.print_vehicles()
