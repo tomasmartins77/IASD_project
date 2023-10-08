@@ -232,6 +232,7 @@ class FleetProblem(search.Problem):
                 if location != current_location:
                     actions.append(['Move', i, location])
 
+        print_vehicles(vehicles)
         return actions
 
     def result(self, state, action):
@@ -241,14 +242,14 @@ class FleetProblem(search.Problem):
                 state (list): The state to get the result from.
                 action (list): The action to perform.
         """
-        if action[0] == 'Pickup':
-            state = pickup(state, action)
-        elif action[0] == 'Dropoff':
-            state = dropoff(state, action)
-        elif action[0] == 'Move':
-            state = self.move(state, action)
-
         new_state = copy.deepcopy(state)
+        if action[0] == 'Pickup':
+            new_state = pickup(new_state, action)
+        elif action[0] == 'Dropoff':
+            new_state = dropoff(new_state, action)
+        elif action[0] == 'Move':
+            new_state = self.move(new_state, action)
+
         return new_state
 
     def move(self, state, action):
@@ -295,11 +296,10 @@ class FleetProblem(search.Problem):
         Returns:
             list: The solution to the Fleet Problem.
         """
-        resulted = search.iterative_deepening_search(self)
-        path = resulted.path()
-        print(len(path))
-        for node in path:
-            self.build_solution(node.state[0], node.state[1])
+        resulted = search.breadth_first_tree_search(self)
+        state = resulted.state
+        print_vehicles(state[0])
+        print_requests(state[1])
         return
 
 
@@ -520,7 +520,7 @@ class Vehicle:
 
 if __name__ == '__main__':
     fp = FleetProblem()
-    file_path = 'test.txt'
+    file_path = 'teste1.txt'
     with open(file_path) as f:
         fp.load(f.readlines())
 
