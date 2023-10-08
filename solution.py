@@ -188,6 +188,8 @@ class FleetProblem(search.Problem):
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
 
+        self.requests = tuple(self.requests)
+        self.vehicles = tuple(self.vehicles)
         self.initialize()
 
     def cost(self, sol):
@@ -214,7 +216,7 @@ class FleetProblem(search.Problem):
         """Initializes the Fleet Problem."""
         vehicles = copy.deepcopy(self.vehicles)
         requests = copy.deepcopy(self.requests)
-        self.initial = [vehicles, requests]
+        self.initial = tuple([tuple(vehicles), tuple(requests)])
 
     def actions(self, state):
         """Gets the actions that can be performed on a given state.
@@ -268,7 +270,7 @@ class FleetProblem(search.Problem):
         elif action[0] == 'Dropoff':
             new_state = dropoff(new_state, action)
 
-        return new_state
+        return tuple(new_state)
 
     def goal_test(self, state):
         """Checks if a given state is a goal state."""
@@ -280,6 +282,14 @@ class FleetProblem(search.Problem):
         return done_requests == self.total_requests
 
     def path_cost(self, c, state1, action, state2):
+        """Calculates the path cost of a given action."""
+        if action[0] == "Dropoff":
+            request = state1[1][action[2]].get_request()
+            td = action[3]
+            t = request.get_pickup_time()
+            Tod = self.graph.get_edge(request.pickup_location, request.dropoff_location)
+            c += td - t - Tod
+
         return c
 
     def solve(self):
@@ -288,7 +298,7 @@ class FleetProblem(search.Problem):
         Returns:
             list: The solution to the Fleet Problem.
         """
-        resulted = search.iterative_deepening_search(self)
+        resulted = search.uniform_cost_search(self)
         res = resulted.solution()
         res = [tuple(i) for i in res]
 
@@ -433,6 +443,10 @@ class Vehicle:
         self.passengers = 0
         self.current_requests = []
         self.current_time = 0
+
+    def __lt__(self, other):
+        # replace 'attribute' with the actual attribute you want to compare
+        return self.current_time < other.current_time
 
     def get_vehicle(self):
         """Gets a vehicle."""
