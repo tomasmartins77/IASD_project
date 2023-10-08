@@ -67,6 +67,7 @@ def pickup(state, action):
     action_vehicle.add_passengers(request.get_num_passengers())
     action_vehicle.add_new_request(which_pickup)
     action_vehicle.set_location(request.get_pickup())
+
     request.pick_request()
     action_vehicle.set_time(action[3])
 
@@ -92,6 +93,27 @@ def where_to_go(state, vehicle):
             if location not in go and request.get_status() == "traveling" and location in dropoff_location:
                 go.append(location)
     return go
+
+
+def dropoff(state, action):
+    """Drops off a request.
+
+        Args:
+            state (list): The state to drop off the request from.
+            action (list): The action to perform.
+    """
+    action_vehicle = state[0][action[1]]
+    which_dropoff = action[2]
+    dropoff_request = state[1][which_dropoff].get_request()
+
+    action_vehicle.remove_passengers(dropoff_request.get_num_passengers())
+    action_vehicle.remove_request(which_dropoff)
+
+    action_vehicle.set_time(action[3])
+    dropoff_request.drop_request()
+    action_vehicle.set_location(dropoff_request.get_dropoff())
+
+    return state
 
 
 class FleetProblem(search.Problem):
@@ -217,7 +239,8 @@ class FleetProblem(search.Problem):
             for what_pickup in pickups:
                 if not vehicle.becomes_full(requests[what_pickup].get_num_passengers()):
                     request_time = requests[what_pickup].get_pickup_time()
-                    transport_time = self.graph.get_edge(vehicle.get_location(), requests[what_pickup].get_pickup())
+                    transport_time = (vehicle.get_time()
+                                      + self.graph.get_edge(vehicle.get_location(), requests[what_pickup].get_pickup()))
                     if request_time > transport_time:
                         time_to_add = requests[what_pickup].get_pickup_time()
                     else:
@@ -243,28 +266,9 @@ class FleetProblem(search.Problem):
         if action[0] == 'Pickup':
             new_state = pickup(new_state, action)
         elif action[0] == 'Dropoff':
-            new_state = self.dropoff(new_state, action)
+            new_state = dropoff(new_state, action)
 
         return new_state
-
-    def dropoff(self, state, action):
-        """Drops off a request.
-
-            Args:
-                state (list): The state to drop off the request from.
-                action (list): The action to perform.
-        """
-        action_vehicle = state[0][action[1]]
-        which_dropoff = action[2]
-
-        dropoff_request = state[1][which_dropoff].get_request()
-        action_vehicle.remove_passengers(dropoff_request.get_num_passengers())
-        action_vehicle.remove_request(which_dropoff)
-        action_vehicle.set_time(action[3])
-        dropoff_request.drop_request()
-        action_vehicle.set_location(dropoff_request.get_dropoff())
-
-        return state
 
     def goal_test(self, state):
         """Checks if a given state is a goal state."""
@@ -518,3 +522,4 @@ if __name__ == '__main__':
     reso = fp.solve()
     cost = fp.cost(reso)
     print(reso)
+    print(cost)
