@@ -216,17 +216,19 @@ class FleetProblem(search.Problem):
 
             # Get the list of possible actions
             for what_pickup in pickups:
-                if not vehicle.becomes_full(requests[what_pickup].get_num_passengers()):
-                    actions.append(('Pickup', i, what_pickup, vehicle.get_time()))
+                if not vehicle.becomes_full(requests[what_pickup].get_num_passengers() and requests[what_pickup].get_pickup_time() > vehicle.get_time()):
+                    time_to_add = requests[what_pickup].get_pickup_time() - vehicle.get_time()
+                    actions.append(('Pickup', i, what_pickup, vehicle.get_time() + time_to_add))
                 else:
                     continue
 
             for what_dropoff in dropoffs:
                 if what_dropoff in vehicle.get_current_requests():
                     time_to_add = self.graph.get_edge(vehicle.get_location(), requests[what_dropoff].get_dropoff())
-                    actions.append(('Dropoff', i, what_dropoff, time_to_add)
+                    actions.append(('Dropoff', i, what_dropoff, vehicle.get_time() + time_to_add))
 
         print_vehicles(vehicles)
+        print("BANANA")
         print(actions)
         return actions
 
