@@ -104,9 +104,8 @@ class FleetProblem(search.Problem):
         vehicles (Vehicles): The vehicle data.
     """
 
-    def __init__(self, initial):
+    def __init__(self):
         """Initializes a FleetProblem instance."""
-        super().__init__(initial)
         self.sol = []
         self.graph = None
         self.requests = []
@@ -205,6 +204,7 @@ class FleetProblem(search.Problem):
         # Get the list of requests and vehicles from the state
         vehicles = state[0]
         requests = state[1]
+        already_picked_up = []
 
         for vehicle in vehicles:
             i = vehicle.get_index()
@@ -218,8 +218,9 @@ class FleetProblem(search.Problem):
 
             # Get the list of possible actions
             for what_pickup in pickups:
-                if not vehicle.becomes_full(requests[what_pickup].get_num_passengers()):
+                if not vehicle.becomes_full(requests[what_pickup].get_num_passengers()) and what_pickup not in already_picked_up:
                     actions.append(['Pickup', i, what_pickup])
+                    already_picked_up.append(what_pickup)
                 else:
                     continue
 
@@ -266,33 +267,40 @@ class FleetProblem(search.Problem):
 
         return state
 
-    def build_solution(self, state, action):
-        vehicle = state[0][action[1]]
-
-        if action[0] == 'Pickup':
-            which_action = 'Pickup'
-        else:
-            which_action = 'Dropoff'
-
-        self.sol.append((which_action, vehicle.get_index(), action[2], vehicle.get_time()))
-
     def goal_test(self, state):
         """Checks if a given state is a goal state."""
         done_requests = 0
         for request in state[1]:
             if request.status == 'completed':
                 done_requests += 1
-        print_requests(state[1])
-        print_vehicles(state[0])
+
         return done_requests == self.total_requests
+
+    def build_solution(self, vehicles, requests):
+        """Builds a solution to the Fleet Problem.
+
+        Args:
+            vehicles (list): The list of vehicles.
+            requests (list): The list of requests.
+        """
+        for vehicle in vehicles:
+            vehicle.print_vehicle()
+        for request in requests:
+            request.print_request()
+        return
 
     def solve(self):
         """Solves the Fleet Problem.
 
         Returns:
-            list: The solution to the problem.
+            list: The solution to the Fleet Problem.
         """
-        return search.breadth_first_tree_search(self)
+        resulted = search.iterative_deepening_search(self)
+        path = resulted.path()
+        print(len(path))
+        for node in path:
+            self.build_solution(node.state[0], node.state[1])
+        return
 
 
 # Define a class for representing a graph
@@ -511,11 +519,9 @@ class Vehicle:
 
 
 if __name__ == '__main__':
-    fp = FleetProblem([])
+    fp = FleetProblem()
     file_path = 'test.txt'
     with open(file_path) as f:
         fp.load(f.readlines())
 
     fp.solve()
-
-    print(fp.sol)
