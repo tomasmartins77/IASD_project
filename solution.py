@@ -16,11 +16,14 @@ def get_pickups(requests, vehicle):
         list: The list of pickups in the given node.
     """
     pickups = []
+
     for request in requests:
         request_index = request.get_index()
         num_passengers = request.get_num_passengers()
         if request.status == 'waiting' and not vehicle.becomes_full(num_passengers):
+            # Check if the request is waiting and the vehicle does not become full after adding the passengers
             pickups.append(request_index)
+
     return pickups
 
 
@@ -35,11 +38,15 @@ def get_dropoffs(requests, vehicle):
         list: The list of dropoffs in the given node.
     """
     dropoffs = []
-    current_requests = vehicle.get_current_requests()
+
+    current_requests = vehicle.get_current_requests()  # Get the current requests of the vehicle
+
     for request in requests:
         request_index = request.get_index()
         if request.status == 'traveling' and request_index in current_requests:
+            # Check if the request is in the current requests of the vehicle and traveling
             dropoffs.append(request_index)
+
     return dropoffs
 
 
@@ -65,20 +72,23 @@ def pickup(state, action):
         Args:
             state (list): The state to pick up the request from.
             action (list): The action to perform.
+
+        Returns:
+            list: The new state after picking up the request.
     """
-    action_vehicle = state[0][action[1]]
-    which_pickup = action[2]
-    request = state[1][which_pickup]
+    action_vehicle = state[0][action[1]]  # Get the vehicle from the state
+    which_pickup = action[2]  # Get the index of the request to pick up
+    request = state[1][which_pickup]  # Get the request to pick up
 
-    num_passengers = request.get_num_passengers()
-    pickup_location = request.get_pickup()
+    num_passengers = request.get_num_passengers()  # Get the number of passengers
+    pickup_location = request.get_pickup()  # Get the pickup location
 
-    action_vehicle.add_passengers(num_passengers)
-    action_vehicle.add_new_request(which_pickup)
-    action_vehicle.set_location(pickup_location)
+    action_vehicle.add_passengers(num_passengers)  # Add the passengers to the vehicle
+    action_vehicle.add_new_request(which_pickup)  # Add the request to the vehicle
+    action_vehicle.set_location(pickup_location)  # Set the location of the vehicle
 
-    request.pick_request()
-    action_vehicle.set_time(action[3])
+    request.pick_request()  # Pick up the request
+    action_vehicle.set_time(action[3])  # Set the time of the vehicle
 
     return state
 
@@ -89,43 +99,25 @@ def dropoff(state, action):
         Args:
             state (list): The state to drop off the request from.
             action (list): The action to perform.
+
+        Returns:
+            list: The new state after dropping off the request.
     """
-    action_vehicle = state[0][action[1]]
-    which_dropoff = action[2]
-    dropoff_request = state[1][which_dropoff]
+    action_vehicle = state[0][action[1]]  # Get the vehicle from the state
+    which_dropoff = action[2]  # Get the index of the request to drop off
+    dropoff_request = state[1][which_dropoff]  # Get the request to drop off
 
-    num_passengers = dropoff_request.get_num_passengers()
-    dropoff_location = dropoff_request.get_dropoff()
+    num_passengers = dropoff_request.get_num_passengers()  # Get the number of passengers
+    dropoff_location = dropoff_request.get_dropoff()  # Get the dropoff location
 
-    action_vehicle.remove_passengers(num_passengers)
-    action_vehicle.remove_request(which_dropoff)
+    action_vehicle.remove_passengers(num_passengers)  # Remove the passengers from the vehicle
+    action_vehicle.remove_request(which_dropoff)  # Remove the request from the vehicle
 
-    action_vehicle.set_time(action[3])
-    dropoff_request.drop_request()
-    action_vehicle.set_location(dropoff_location)
+    action_vehicle.set_time(action[3])  # Set the time of the vehicle
+    dropoff_request.drop_request()  # Drop off the request
+    action_vehicle.set_location(dropoff_location)  # Set the location of the vehicle
 
     return state
-
-
-def where_to_go(state, vehicle):
-    go = []
-    current_requests = vehicle.get_current_requests()
-    dropoff_location = []
-
-    for i in current_requests:
-        dropoff_location.append(state[1][i].get_dropoff())
-
-    for request in state[1]:
-        if request.get_status() != "completed":
-            location = request.get_pickup()
-
-            if location not in go and request.get_status() == "waiting":
-                go.append(location)
-
-            location = request.get_dropoff()
-            if location not in go and request.get_status() == "traveling" and location in dropoff_location:
-                go.append(location)
-    return go
 
 
 class FleetProblem(search.Problem):
@@ -200,7 +192,7 @@ class FleetProblem(search.Problem):
 
         self.requests = tuple(self.requests)
         self.vehicles = tuple(self.vehicles)
-        self.initialize()
+        self.initialize()  # initialize the state
 
     def cost(self, sol):
         """Calculates the cost of a solution.
@@ -212,12 +204,14 @@ class FleetProblem(search.Problem):
             float: The total cost of the solution.
         """
         total_cost = 0
+
         for action in sol:
-            if action[0] == 'Dropoff':
+            if action[0] == 'Dropoff':  # If the action is a dropoff
                 request = self.requests[action[2]].get_request()
                 td = action[3]
                 t = request.get_pickup_time()
                 Tod = self.graph.get_edge(request.pickup_location, request.dropoff_location)
+
                 total_cost += td - t - Tod  # Calculate cost based on the solution
 
         return total_cost
@@ -233,12 +227,15 @@ class FleetProblem(search.Problem):
 
             Args:
                 state (list): The state to get the actions from.
+
+            Returns:
+                list: The list of actions that can be performed on the given state.
         """
         actions = []
         # Get the list of requests and vehicles from the state
         vehicles, requests = state
 
-        for vehicle in vehicles:
+        for vehicle in vehicles:  # For each vehicle
             i = vehicle.get_index()
             vehicle_time = vehicle.get_time()
             vehicle_location = vehicle.get_location()
@@ -250,21 +247,22 @@ class FleetProblem(search.Problem):
             dropoffs = get_dropoffs(requests, vehicle)
 
             # Get the list of possible actions
+            for what_dropoff in dropoffs:
+                time_to_add = self.graph.get_edge(vehicle_location, requests[what_dropoff].get_dropoff())
+
+                actions.append(('Dropoff', i, what_dropoff, vehicle_time + time_to_add))  # Add the action to the list
+
             for what_pickup in pickups:
                 request = requests[what_pickup]
                 request_time = request.get_pickup_time()
                 transport_time = vehicle_time + self.graph.get_edge(vehicle_location, request.get_pickup())
 
-                if request_time > transport_time:
+                if request_time > transport_time:  # If the request time is greater than the transport time
                     time_to_add = request_time
                 else:
                     time_to_add = self.graph.get_edge(vehicle_location, request.get_pickup())
 
-                actions.append(('Pickup', i, what_pickup, vehicle_time + time_to_add))
-
-            for what_dropoff in dropoffs:
-                time_to_add = self.graph.get_edge(vehicle_location, requests[what_dropoff].get_dropoff())
-                actions.append(('Dropoff', i, what_dropoff, vehicle_time + time_to_add))
+                actions.append(('Pickup', i, what_pickup, vehicle_time + time_to_add))  # Add the action to the list
 
         return actions
 
@@ -274,8 +272,12 @@ class FleetProblem(search.Problem):
             Args:
                 state (list): The state to get the result from.
                 action (list): The action to perform.
+
+            Returns:
+                list: The new state after performing the action.
         """
         new_state = None
+
         if action[0] == 'Pickup':
             new_state = pickup(copy.deepcopy(state), action)
         elif action[0] == 'Dropoff':
@@ -284,11 +286,28 @@ class FleetProblem(search.Problem):
         return tuple(new_state)
 
     def goal_test(self, state):
-        """Checks if a given state is a goal state."""
+        """Checks if a given state is a goal state.
+
+            Args:
+                state (list): The state to check.
+
+            Returns:
+                bool: True if the state is a goal state, False otherwise.
+        """
         return len([request for request in state[1] if request.status == 'completed']) == self.total_requests
 
     def path_cost(self, c, state1, action, state2):
-        """Calculates the path cost of a given action."""
+        """Calculates the path cost of a given action.
+
+            Args:
+                c (float): The cost of the path so far.
+                state1 (list): The state to get the path cost from.
+                action (list): The action to perform.
+                state2 (list): The state to get the path cost to.
+
+            Returns:
+                float: The path cost of the given action.
+        """
         if action[0] == "Dropoff":
             request = state1[1][action[2]].get_request()
             c += action[3] - request.get_pickup_time() - self.graph.get_edge(request.pickup_location,
@@ -302,7 +321,8 @@ class FleetProblem(search.Problem):
         Returns:
             list: The solution to the Fleet Problem.
         """
-        resulted = search.uniform_cost_search(self)
+        resulted = search.uniform_cost_search(self)  # Solve the Fleet Problem using uniform cost search
+
         res = resulted.solution()
         res = [tuple(i) for i in res]
 
@@ -326,9 +346,9 @@ class Graph:
             num_vertices (int): The number of vertices in the graph.
             directed (bool, optional): Whether the graph is directed or not. Defaults to False.
         """
-        self.num_vertices = num_vertices
-        self.directed = directed
-        self.graph = [[0.0] * num_vertices for _ in range(num_vertices)]
+        self.num_vertices = num_vertices  # The number of vertices in the graph
+        self.directed = directed  # Whether the graph is directed or not
+        self.graph = [[0.0] * num_vertices for _ in range(num_vertices)]  # The adjacency matrix representing the graph
 
     def add_edge(self, u, v, w):
         """Adds an edge to the graph.
@@ -381,12 +401,12 @@ class Request:
     """
 
     def __init__(self, request_index, request):
-        self.request_index = request_index
-        self.pickup_time = float(request[0])
-        self.pickup_location = int(request[1])
-        self.dropoff_location = int(request[2])
-        self.n_passengers = int(request[3])
-        self.status = 'waiting'
+        self.request_index = request_index  # The index of the request
+        self.pickup_time = float(request[0])  # The time at which the request is made
+        self.pickup_location = int(request[1])  # The location of the pickup
+        self.dropoff_location = int(request[2])  # The location of the dropoff
+        self.n_passengers = int(request[3])  # The number of passengers
+        self.status = 'waiting'  # The status of the request
 
     def get_request(self):
         """Gets the request."""
@@ -413,6 +433,7 @@ class Request:
         return self.n_passengers
 
     def get_status(self):
+        """Gets the status of the request."""
         return self.status
 
     def pick_request(self):
@@ -441,12 +462,12 @@ class Vehicle:
     """
 
     def __init__(self, vehicle_index, occupancy):
-        self.vehicle_index = vehicle_index
-        self.current_location = 0
-        self.occupancy = occupancy
-        self.passengers = 0
-        self.current_requests = []
-        self.current_time = 0
+        self.vehicle_index = vehicle_index  # The index of the vehicle
+        self.current_location = 0  # The current location of the vehicle
+        self.occupancy = occupancy  # The maximum occupancy of the vehicle
+        self.passengers = 0  # The number of passengers in the vehicle
+        self.current_requests = []  # The list of requests currently in the vehicle
+        self.current_time = 0  # The current time of the vehicle
 
     def __lt__(self, other):
         # replace 'attribute' with the actual attribute you want to compare
