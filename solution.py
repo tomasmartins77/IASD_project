@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from search import Problem, uniform_cost_search
+from search import Problem, uniform_cost_search, astar_search
 import copy
 
 
@@ -233,9 +233,25 @@ class FleetProblem(Problem):
 
         return c  # Return the cost
 
+    def h(self, node):
+        """Heuristic function for the problem.
+
+        Args:
+            node (Node): The node to calculate the heuristic for.
+
+        Returns:
+            float: The heuristic value of the node.
+        """
+        actions = []
+        for action in node.solution():
+            new = tuple([action.get_type(), action.get_vehicle_id(), action.get_request_id(), action.get_time()])
+            actions.append(new)
+
+        return self.cost(actions)  # Return the cost of the solution
+
     def solve(self):
         """Solves the problem using uniform cost search."""
-        result = uniform_cost_search(self, True)
+        result = astar_search(self)
         actions = []
 
         for action in result.solution():
@@ -583,3 +599,15 @@ class State:
     def get_vehicles(self):
         """Gets the vehicles in the state."""
         return self.vehicles
+
+
+if __name__ == '__main__':
+    fp = FleetProblem()
+    file_path = 'ex3.dat'
+    with open(file_path) as f:
+        fp.load(f.readlines())
+
+    reso = fp.solve()
+    cost = fp.cost(reso)
+    print(reso)
+    print(cost)

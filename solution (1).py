@@ -26,42 +26,42 @@ class FleetProblem(Problem):
         row = 0
         P = 0
 
-        with open(file) as f:
-            for line in f:
-                words = line.split()
+        # with open(file) as f:
+        for line in file:
+            words = line.split()
 
-                if not words or words[0].startswith('#'):
-                    continue  # Skip empty lines and comments
+            if not words or words[0].startswith('#'):
+                continue  # Skip empty lines and comments
 
-                if words[0] == 'P':
-                    P = int(words[1])  # Get the number of vertices
-                    self.graph = Graph(P)  # Initialize the graph
-                    current_mode = 'P'  # Set the mode to process graph data
-                elif words[0] == 'R':
-                    total_requests = int(words[1])  # Initialize requests
-                    current_mode = 'R'  # Set the mode to process request data
-                elif words[0] == 'V':
-                    total_vehicles = int(words[1])  # Initialize vehicles
-                    current_mode = 'V'  # Set the mode to process vehicle data
+            if words[0] == 'P':
+                P = int(words[1])  # Get the number of vertices
+                self.graph = Graph(P)  # Initialize the graph
+                current_mode = 'P'  # Set the mode to process graph data
+            elif words[0] == 'R':
+                total_requests = int(words[1])  # Initialize requests
+                current_mode = 'R'  # Set the mode to process request data
+            elif words[0] == 'V':
+                total_vehicles = int(words[1])  # Initialize vehicles
+                current_mode = 'V'  # Set the mode to process vehicle data
+            else:
+                if current_mode == 'P':
+                    col = 1 - P  # Initialize column index for graph data
+                    for weight in words:
+                        self.graph.add_edge(row, col, float(weight))  # Add edge data to the graph
+                        col += 1
+                    row += 1
+                    P -= 1
+                elif current_mode == 'R':
+                    self.requests.append(Request(float(words[0]), int(words[1]), int(words[2]), int(words[3])))  # Add request data
+                elif current_mode == 'V':
+                    self.fleet.append(Vehicle(int(words[0])))  # Add vehicle data
                 else:
-                    if current_mode == 'P':
-                        col = 1 - P  # Initialize column index for graph data
-                        for weight in words:
-                            self.graph.add_edge(row, col, float(weight))  # Add edge data to the graph
-                            col += 1
-                        row += 1
-                        P -= 1
-                    elif current_mode == 'R':
-                        self.requests.append(Request(float(words[0]), int(words[1]), int(words[2]), int(words[3])))  # Add request data
-                    elif current_mode == 'V':
-                        self.fleet.append(Vehicle(int(words[0])))  # Add vehicle data
-                    else:
-                        raise Exception('Invalid mode')  # Handle invalid mode
-
+                    raise Exception('Invalid mode')  # Handle invalid mode
+                    
         self.requests = tuple(self.requests)
         self.fleet = tuple(self.fleet)
 
-        self.initialize()
+        self.initial = State(self.requests, self.fleet)
                     
     def initialize(self):
         self.initial = State(self.requests, self.fleet)
@@ -72,8 +72,7 @@ class FleetProblem(Problem):
 
         requests = state.get_requests()
         vehicles = state.get_vehicles()
-        for request in self.requests:
-            request.print_request()
+
         for vehicle in vehicles:
             for request in requests:
                 if request.get_status() == 'waiting' and vehicle.get_capacity() >= request.get_passengers():
@@ -84,14 +83,12 @@ class FleetProblem(Problem):
                     pickup_time = max(arrival_time, request_time)
 
                     actions.append(Action('Pickup', vehicles.index(vehicle), requests.index(request), pickup_time))
+
                 if request.get_status() == 'traveling' and request.get_vehicle_id() == vehicles.index(vehicle):
                     time = vehicle.get_time()
-                    #print("request adsasdasd")
-                    request.print_request()
-                    #print("accao", request.get_dropoff(), requests.index(request), request.get_pickup_time())
                     deslocation_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
                     dropoff_time = time + deslocation_time
-                    #print("accao", 'Dropoff', vehicles.index(vehicle), requests.index(request), dropoff_time)
+
                     actions.append(Action('Dropoff', vehicles.index(vehicle), requests.index(request), dropoff_time))
 
         # actions.sort(key=lambda x: x.get_time())
@@ -99,9 +96,7 @@ class FleetProblem(Problem):
         # if len(actions) >= 3:
         #     actions = actions[:3]
         # test = dict()
-        for actionss in actions:
-            print(actionss.print_action())
-        print('-------------------')
+
         return actions
     
     def result(self, state, action):
@@ -143,54 +138,51 @@ class FleetProblem(Problem):
         # if action.get_type() == 'Dropoff' and action.get_vehicle_id() == 1 and action.get_request_id() == 1 and action.get_time() == 140.0:
         #     print('Siuuuuuu')
         
+        locations = dict()
+
         alpha = 1
         beta = 1
 
-        locations = []
-
         # for request_id in vehicle.get_requests():
-            # if request_id != action.get_request_id():
-            #     queue_request = state1.get_requests()[request_id]
-            #     pickup_time = queue_request.get_time()
+        #     if request_id != action.get_request_id():
+        #         queue_request = state1.get_requests()[request_id]
+        #         pickup_time = queue_request.get_time()
 
-            #     # if queue_request.get_dropoff() not in locations:
-            #     #     locations.append(queue_request.get_dropoff())
+        #         if queue_request.get_dropoff() not in locations:
+        #             locations[queue_request.get_dropoff()] = 1
+        #         else:
+        #             locations[queue_request.get_dropoff()] += 1
 
-            #     if action.get_type() == 'Pickup':
-            #         if queue_request.get_dropoff() != request.get_pickup():
-            #             c += time - vehicle.get_time()
-
-            #     if action.get_type() == 'Dropoff':
-            #         if queue_request.get_dropoff() != request.get_dropoff():
-            #             c += time - vehicle.get_time()
-
-                # c += (time - pickup_time) * queue_request.get_passengers()
+                # c += (time - pickup_time)
 
         if action.get_type() == 'Pickup':
-            # if len(locations) != 0:
-            #     if request.get_pickup() not in locations or request.get_dropoff() not in locations:
-            #         c += 20
-            # c += self.graph.get_edge(vehicle.get_location(), request.get_pickup())
+            # if vehicle.get_location() == request.get_pickup():
+            #     alpha = 0.5
 
-            # if vehicle.get_location() != request.get_pickup():
-            #     alpha = 0.8
+            # if request.get_pickup() in locations and len(locations) != 0:
+            #     beta = 0.55 * (1 - (locations[request.get_pickup()] / len(state1.get_requests())))
 
-            return c + (time - request.get_time()) * alpha
+            # teta = min(alpha, beta)
+            
+            # if vehicle.get_location() == request.get_pickup():
+            #     alpha -= 0.5
+            # elif request.get_pickup() in locations and len(locations) != 0:
+            #     alpha -= 0.2
+
+            c += (time - request.get_time())
 
             # other_vehicles = state1.get_vehicles()
             # for other in other_vehicles:
             #     if other != vehicle:
             #         if other.get_location() == request.get_pickup():
-            #             c += 50
+            #             c += 40
         else:
-            # if request.get_dropoff() not in locations and len(locations) != 0:
-            #     beta = 1.2
-            return c + time - self.graph.get_edge(vehicle.get_location(), request.get_dropoff()) - request.get_pickup_time()
+            # if request.get_dropoff() in locations and len(locations) != 0:
+            #     beta = 0.5 * (1 - (locations[request.get_dropoff()] / len(state1.get_requests())))
+            c += time - request.get_time() - self.graph.get_edge(vehicle.get_location(), request.get_dropoff()) - request.get_time_status()
 
-
-        
         # if action.get_type() == 'Pickup':
-        #     if request.get_pickup() not in locations or request.get_dropoff() not in locations:   
+        #     if request.get_pickup() not in locations or request.get_dropoff() not in locations:
         #         c += self.graph.get_edge(request.get_pickup(), request.get_dropoff())
         #     # if request.get_pickup() != vehicle.get_location():
         #     #     c += self.graph.get_edge(vehicle.get_location(), request.get_pickup())
@@ -199,31 +191,36 @@ class FleetProblem(Problem):
         #     if request.get_dropoff() not in locations:
         #         c += self.graph.get_edge(request.get_pickup(), request.get_dropoff())
         #     c += self.graph.get_edge(vehicle.get_location(), request.get_dropoff()) 
-        # return c
+        return c
     
     def solve(self):
-        result = uniform_cost_search(self, True)
-        return result.solution()
+        result = uniform_cost_search(self)
 
-    def cost(self, solution):
-        """Calculates the cost of a solution.
+        actions = []
+        for action in result.solution():
+            new = tuple([action.get_type(), action.get_vehicle_id(), action.get_request_id(), action.get_time()])
+            actions.append(new)
+        return actions
 
-        Args:
-            sol (list): The solution to calculate the cost for.
+    # def cost(self, solution):
+    #     """Calculates the cost of a solution.
 
-        Returns:
-            float: The total cost of the solution.
-        """
-        total_cost = 0
-        for action in solution:
-            if action.get_type() == 'Dropoff':
-                request = self.requests[action.get_request_id()]
-                td = action.get_time()
-                t = request.get_time()
-                Tod = self.graph.get_edge(request.get_pickup(), request.get_dropoff())
-                total_cost += td - t - Tod  # Calculate cost based on the solution
+    #     Args:
+    #         sol (list): The solution to calculate the cost for.
 
-        return total_cost
+    #     Returns:
+    #         float: The total cost of the solution.
+    #     """
+    #     total_cost = 0
+    #     for action in solution:
+    #         if action.get_type() == 'Dropoff':
+    #             request = self.requests[action.get_request_id()]
+    #             td = action.get_time()
+    #             t = request.get_time()
+    #             Tod = self.graph.get_edge(request.get_pickup(), request.get_dropoff())
+    #             total_cost += td - t - Tod  # Calculate cost based on the solution
+
+    #     return total_cost
 
 
 class Graph:
@@ -349,35 +346,30 @@ class Request:
         self.dropoff = dropoff
         self.passengers = passengers
         self.status = 'waiting'
-        self.pickup_time = time
-        self.dropoff_time = None
+        self.status_time = time
         self.vehicle_id = None
-    
+
     def __eq__(self, other):
-        return (    
-                self.status == other.status
-                and self.vehicle_id == other.vehicle_id
-                and self.pickup_time == other.pickup_time
-                and self.dropoff_time == other.dropoff_time
-            )
+        if isinstance(other, Request):
+            return (    
+                    self.status == other.status
+                    and self.vehicle_id == other.vehicle_id
+                    and self.status_time == other.status_time
+                )
     
     def __lt__(self, other):
-        return self.time < other.time
+        return self.status_time < other.status_time
 
     def __hash__(self):
-        return hash((self.status, self.vehicle_id, self.pickup_time, self.dropoff_time))
-
+        return hash((self.status, self.vehicle_id, self.status_time))
+    
     def get_time(self):
         """Gets the pickup time."""
         return self.time
     
-    def get_pickup_time(self):
+    def get_time_status(self):
         """Gets the status time."""
-        return self.pickup_time
-    
-    def get_dropoff_time(self):
-        """Gets the status time."""
-        return self.drop_time
+        return self.status_time
 
     def get_pickup(self):
         """Gets the pickup location."""
@@ -401,15 +393,12 @@ class Request:
         """Picks up a request."""
         self.vehicle_id = vehicle_id
         self.status = 'traveling'
-        self.pickup_time = time
+        self.status_time = time
 
     def drop_request(self, time):
         """Drops off a request."""
         self.status = 'completed'
-        self.dropoff_time = time
-
-    def print_request(self):
-        print(self.pickup_time, self.pickup, self.dropoff, self.passengers, self.status, self.time)
+        self.status_time = time
 
 
 
@@ -430,9 +419,6 @@ class Vehicle:
         self.location = location
         self.passengers = passengers
         self.requests_id = []
-
-    def __lt__(self, other):
-        return self.capacity < other.capacity
 
     def get_capacity(self):
         """Gets the capacity of the vehicle."""
@@ -502,9 +488,6 @@ class Action:
     def get_time(self):
         return self.time
 
-    def print_action(self):
-        print(self.type, self.vehicle_id, self.request_id, self.time)
-
 
 class State:
     """A class for representing a state.
@@ -534,15 +517,13 @@ class State:
     def get_vehicles(self):
         """Gets the vehicles in the state."""
         return self.vehicles
-
-
+    
 if __name__ == '__main__':
-    fp = FleetProblem()
-    file_path = 'ex0.dat'
-    with open(file_path) as f:
-        fp.load(f.readlines())
-
-    reso = fp.solve()
-    cost = fp.cost(reso)
-    print(reso)
+    problem = FleetProblem()
+    problem.load('tests/ex3.dat')
+    problem.initialize()
+    solution = problem.solve()
+    for action in solution:
+        print(action.get_type(), action.get_vehicle_id(), action.get_request_id(), action.get_time())
+    cost = problem.cost(solution)
     print(cost)
