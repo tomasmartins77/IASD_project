@@ -81,6 +81,10 @@ class FleetProblem(Problem):
                 else:
                     raise Exception('Invalid mode')  # Handle invalid mode
 
+        self.fleet = sorted(self.fleet, key=lambda x: x.get_capacity(), reverse=True)
+
+        self.fleet = self.fleet[:request_index]
+
         self.requests = tuple(self.requests)
         self.fleet = tuple(self.fleet)
 
@@ -135,8 +139,8 @@ class FleetProblem(Problem):
         actions.sort(key=lambda x: x.get_time())
 
         # If there are more than 5 actions, keep only the first 5
-        if len(actions) >= 5:
-            actions = actions[:5]
+        #if len(actions) >= 3:
+            #actions = actions[:3]
 
         return actions  # Return the list of actions
 
@@ -156,7 +160,7 @@ class FleetProblem(Problem):
 
         # Get the type of action, vehicle and request from the action and state
         action_type = action.get_type()
-        vehicle = new_state.get_vehicles()[action.get_vehicle_id()]
+        vehicle = new_state.get_vehicle(action.get_vehicle_id())
         request = new_state.get_requests()[action.get_request_id()]
 
         # If the action is a 'Pickup' action
@@ -187,27 +191,25 @@ class FleetProblem(Problem):
                 bool: True if the given state is a goal state, False otherwise.
         """
         requests = state.get_requests()
-
         for request in requests:
             if request.get_status() != 'completed':
                 return False
         return True
 
     def path_cost(self, c, state1, action, state2):
-        """
-        Calculates the path cost of an action.
+        """Returns the cost of a solution.
 
         Args:
-            c (float): The cost of the path up to the given action.
-            state1 (State): The state before the action.
-            action (Action): The action to calculate the path cost for.
-            state2 (State): The state after the action.
+            c (float): The cost of the path to the node.
+            state1 (State): The state of the node.
+            action (Action): The action to execute.
+            state2 (State): The state of the child node.
 
         Returns:
-            float: The path cost of the action.
+            float: The cost of the solution.
         """
         # Get the vehicle and request from the first state using the IDs from the action
-        vehicle = state1.get_vehicles()[action.get_vehicle_id()]
+        vehicle = state1.get_vehicle(action.get_vehicle_id())
         request = state1.get_requests()[action.get_request_id()]
         # Get the time from the action
         time = action.get_time()
@@ -216,14 +218,6 @@ class FleetProblem(Problem):
         if action.get_type() == 'Pickup':
             # Add to the cost the difference between the time of the action and the time of the request
             c += (time - request.get_time())
-
-            # Get all other vehicles from the first state
-            other_vehicles = state1.get_vehicles()
-            for other in other_vehicles:
-                # If another vehicle is at the pickup location, add 50 to the cost
-                if other != vehicle:
-                    if other.get_location() == request.get_pickup():
-                        c += 50
         else:
             # If it's not a 'Pickup' action, it's a 'Dropoff' action. Subtract from the cost
             # the difference between the time of the action and
@@ -242,12 +236,20 @@ class FleetProblem(Problem):
         Returns:
             float: The heuristic value of the node.
         """
-        actions = []
-        for action in node.solution():
-            new = tuple([action.get_type(), action.get_vehicle_id(), action.get_request_id(), action.get_time()])
-            actions.append(new)
+        c = 0  # Initialize a variable to store the total number of requests
 
-        return self.cost(actions)  # Return the cost of the solution
+        # Get the requests from the node
+        requests = node.state.get_requests()
+
+        # Iterate over each request
+        for request in requests:
+            # If the request is waiting, add 1 to the total number of requests
+            if request.get_status() == 'waiting':
+                c += request.get_status_time() + self.graph.get_edge(request.get_pickup(), request.get_dropoff())
+            elif request.get_status() == 'traveling':
+                # If the request is traveling, add 2 to the total number of requests
+                c += request.get_status_time()
+        return c  # Return the heuristic value
 
     def solve(self):
         """Solves the problem using uniform cost search."""
@@ -273,7 +275,6 @@ class FleetProblem(Problem):
 
         for action in sol:
             if action[0] == 'Dropoff':
-
                 request = self.requests[action[2]]
                 td = action[3]
                 t = request.get_time()
@@ -467,6 +468,11 @@ class Request:
         self.status = 'completed'
         self.status_time = time
 
+    def print_request(self):
+        """Prints the request."""
+        print(self.time, self.pickup, self.dropoff, self.passengers, self.status, self.status_time, self.vehicle_id,
+              self.index)
+
 
 class Vehicle:
     """A class for representing a vehicle.
@@ -534,6 +540,10 @@ class Vehicle:
         """Sets the location of the vehicle."""
         self.location = location
 
+    def print_vehicle(self):
+        """Prints the vehicle."""
+        print(self.capacity, self.time, self.location, self.passengers, self.requests_id, self.index)
+
 
 class Action:
     """A class for representing an action.
@@ -545,6 +555,7 @@ class Action:
             time (int): The time of the action.
 
     """
+
     def __init__(self, action_type, vehicle_id, request_id, time):
         self.action_type = action_type
         self.vehicle_id = vehicle_id
@@ -599,6 +610,12 @@ class State:
     def get_vehicles(self):
         """Gets the vehicles in the state."""
         return self.vehicles
+
+    def get_vehicle(self, vehicle_id):
+        """Gets a vehicle in the state."""
+        for vehicle in self.vehicles:
+            if vehicle.get_index() == vehicle_id:
+                return vehicle
 
 
 if __name__ == '__main__':
