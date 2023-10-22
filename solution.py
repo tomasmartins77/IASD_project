@@ -620,7 +620,7 @@ class State:
 
 if __name__ == '__main__':
     fp = FleetProblem()
-    file_path = 'ex3.dat'
+    file_path = 'tests\ex3.dat'
     with open(file_path) as f:
         fp.load(f.readlines())
 
