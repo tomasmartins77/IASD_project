@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from search import Problem, uniform_cost_search, astar_search
+from search import Problem, astar_search
 import copy
 
 
@@ -116,8 +116,8 @@ class FleetProblem(Problem):
                     time = vehicle.get_time()
 
                     # Calculate the time it takes for the vehicle to reach the pickup location
-                    deslocation_time = self.graph.get_edge(vehicle.get_location(), request.get_pickup())
-                    arrival_time = time + deslocation_time
+                    drive_time = self.graph.get_edge(vehicle.get_location(), request.get_pickup())
+                    arrival_time = time + drive_time
                     request_time = request.get_time()
                     pickup_time = max(arrival_time, request_time)
 
@@ -129,18 +129,11 @@ class FleetProblem(Problem):
                     time = vehicle.get_time()
 
                     # Calculate the time it takes for the vehicle to reach the dropoff location
-                    deslocation_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
-                    dropoff_time = time + deslocation_time
+                    drive_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
+                    dropoff_time = time + drive_time
 
                     # Add a 'Dropoff' action to the list of actions
                     actions.append(Action('Dropoff', vehicle.get_index(), request.get_index(), dropoff_time))
-
-        # Sort the actions based on their time
-        actions.sort(key=lambda x: x.get_time())
-
-        # If there are more than 5 actions, keep only the first 5
-        #if len(actions) >= 3:
-            #actions = actions[:3]
 
         return actions  # Return the list of actions
 
@@ -208,8 +201,7 @@ class FleetProblem(Problem):
         Returns:
             float: The cost of the solution.
         """
-        # Get the vehicle and request from the first state using the IDs from the action
-        vehicle = state1.get_vehicle(action.get_vehicle_id())
+        # Get the request from the first state using the IDs from the action
         request = state1.get_requests()[action.get_request_id()]
         # Get the time from the action
         time = action.get_time()
@@ -217,13 +209,13 @@ class FleetProblem(Problem):
         # If the action is a 'Pickup' action
         if action.get_type() == 'Pickup':
             # Add to the cost the difference between the time of the action and the time of the request
-            c += (time - request.get_time())
+            c += time - request.get_time()
         else:
             # If it's not a 'Pickup' action, it's a 'Dropoff' action. Subtract from the cost
             # the difference between the time of the action and
             # the time it takes for the vehicle to go from its location to the dropoff location,
             # and subtract also the status time of the request
-            c += time - self.graph.get_edge(vehicle.get_location(), request.get_dropoff()) - request.get_status_time()
+            c += time - self.graph.get_edge(request.get_pickup(), request.get_dropoff()) - request.get_status_time()
 
         return c  # Return the cost
 
@@ -236,23 +228,32 @@ class FleetProblem(Problem):
         Returns:
             float: The heuristic value of the node.
         """
-        c = 0  # Initialize a variable to store the total number of requests
+        h = 0  # Initialize a variable to store the total number of requests
+        state = node.state  # Get the state from the node
+        requests = state.get_requests()  # Get the requests from the state
+        vehicles = state.get_vehicles()  # Get the vehicles from the state
 
-        # Get the requests from the node
-        requests = node.state.get_requests()
-
-        # Iterate over each request
         for request in requests:
-            # If the request is waiting, add 1 to the total number of requests
+            # If the request is waiting, add 1 to the heuristic value
             if request.get_status() == 'waiting':
-                c += request.get_status_time() + self.graph.get_edge(request.get_pickup(), request.get_dropoff())
-            elif request.get_status() == 'traveling':
-                # If the request is traveling, add 2 to the total number of requests
-                c += request.get_status_time()
-        return c  # Return the heuristic value
+                h += request.get_time()
+            if request.get_status() == 'traveling':
+                # If the request is traveling, add the difference between the time of the action and the time of the
+                # request to the heuristic value
+                h += request.get_time()
+
+        for vehicle in vehicles:
+            # Add the number of requests in the vehicle to the heuristic value
+            h -= len(vehicle.get_requests())
+
+        return h  # Return the heuristic value
 
     def solve(self):
-        """Solves the problem using uniform cost search."""
+        """Solves the problem using the astar algorithm.
+
+        Returns:
+            list: The solution to the problem.
+        """
         result = astar_search(self)
         actions = []
 
