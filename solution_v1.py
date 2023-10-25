@@ -352,15 +352,6 @@ class FleetProblem(Problem):
                     deslocation_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
                     dropoff_time = time + deslocation_time
                     c += dropoff_time - request.get_status_time() - self.graph.get_edge(request.get_pickup(), request.get_dropoff())
-
-        # # Iterate over each request
-        # for request in requests:
-        #     # If the request is waiting, add 2 to the total number of requests
-        #     if request.get_status() == 'waiting':
-        #         c += 20
-        #     elif request.get_status() == 'traveling':
-        #         # If the request is traveling, add 1 to the total number of requests
-        #         c += 1
                 
         return c  # Return the heuristic value
 
