@@ -249,7 +249,11 @@ class FleetProblem(Problem):
         return h  # Return the heuristic value
 
     def solve(self):
-        """Solves the problem using uniform cost search."""
+        """Solves the problem using the astar algorithm.
+
+        Returns:
+            list: The solution to the problem.
+        """
         result = astar_search(self)
         actions = []
 
