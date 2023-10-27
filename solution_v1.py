@@ -85,20 +85,6 @@ class FleetProblem(Problem):
         sorted_fleet = sorted(self.fleet, key=lambda x: x.get_capacity(), reverse=True)
         sorted_requests = sorted(self.requests, key=lambda x: x.get_passengers(), reverse=True)
 
-        pre_notion = []
-        if vehicle_index >= request_index:
-            index = 0
-            for request in sorted_requests:
-                if request.get_passengers() <= sorted_fleet[index].get_capacity():
-                    pre_notion.append(sorted_fleet[index].get_index())
-
-                index += 1
-                if index >= vehicle_index:
-                    break
-
-        if len(pre_notion) == len(self.requests):
-            self.pre_notion = pre_notion
-
         self.fleet = sorted_fleet[:request_index]
         self.requests = sorted_requests
 
@@ -233,7 +219,7 @@ class FleetProblem(Problem):
             # the time it takes for the vehicle to go from its location to the dropoff location,
             # and subtract also the status time of the request
             c += time - request.get_status_time() - self.graph.get_edge(request.get_pickup(), request.get_dropoff())
-                
+
         return c  # Return the cost
 
     def h(self, node):
@@ -248,8 +234,6 @@ class FleetProblem(Problem):
             float: The calculated heuristic value.
         """
 
-        h = 0  # Initialize a variable to store the heuristic value
-
         # Get the state from the node
         state = node.state
 
@@ -257,55 +241,100 @@ class FleetProblem(Problem):
         requests = state.get_requests()
         vehicles = state.get_vehicles()
 
+        if len(requests) == len(vehicles):
+            # If there are more vehicles than requests, use the heuristic for lots of vehicles
+            return self.calculate_heuristic_lots_of_vehicles(vehicles, requests)
+        # If there are more requests than vehicles, use the heuristic for fewer vehicles
+        return self.calculate_heuristic_fewer_vehicles(vehicles, requests, state)
+
+    def calculate_heuristic_lots_of_vehicles(self, vehicles, requests):
+        '''This function calculates the heuristic value for a given node in a problem.
+            When there are more vehicles than requests, the heuristic value is a measure of what requests are
+            assigned to what vehicles, since is more worth to assign only one request to each vehicle
+
+            Args:
+                vehicles (list): The vehicles in the state.
+                requests (list): The requests in the state.
+
+            Returns:
+                float: The calculated heuristic value.
+        '''
+        pre_notion = []
         index = 0
-        if self.pre_notion is not None:
-            # If a pre notion exists, calculate the heuristic based on it
-            for request in requests:
-                if request.get_status() == 'traveling' and request.get_vehicle_id() != self.pre_notion[index]:
-                    # If a request is traveling, and it's not assigned to the vehicle in the solution,
-                    # add infinity to the heuristic
-                    h += float('inf')
-                if request.get_status() == 'waiting':
-                    # If a request is waiting, add 10 to the heuristic
-                    h += 10
-                index += 1
-        else:
-            # If no pre notion exists, calculate the heuristic based on the current state
-            for request in requests:
-                if request.get_status() == 'waiting':
-                    # If a request is waiting, find the minimum cost of picking up the request
-                    min_cost = float('inf')
-                    for vehicle in vehicles:
-                        cost = float('inf')
-                        if vehicle.get_capacity() >= request.get_passengers():
-                            # If a vehicle has enough capacity for a request,
-                            # calculate the cost of picking up the request
+        h = 0
+        # assign a request to a vehicle
+        for request in self.requests:
+            if request.get_passengers() <= self.fleet[index].get_capacity():
+                pre_notion.append(self.fleet[index].get_index())
+            index += 1
+
+        index = 0
+        for request in requests:
+            if request.get_status() == 'traveling' and request.get_vehicle_id() != pre_notion[index]:
+                # If a request is traveling, and it's not assigned to the vehicle in the solution,
+                # add infinity to the heuristic
+                h += float('inf')
+            if request.get_status() == 'waiting':
+                # If a request is waiting, add 10 to the heuristic
+                h += 10
+            index += 1
+
+        return h
+
+    def calculate_heuristic_fewer_vehicles(self, vehicles, requests, state):
+        '''This function calculates the heuristic value for a given node in a problem.
+            When there are more requests than vehicles, the heuristic value is a measure of the cost to reach the goal
+
+            Args:
+                vehicles (list): The vehicles in the state.
+                requests (list): The requests in the state.
+                state (State): The state to calculate the heuristic value for.
+
+            Returns:
+                float: The calculated heuristic value.
+        '''
+        h = 0
+        for request in requests:
+            if request.get_status() == 'waiting':
+                # If a request is waiting, find the minimum cost of picking up the request
+                min_cost = float('inf')
+                for vehicle in vehicles:
+                    cost = float('inf')
+                    if vehicle.get_capacity() >= request.get_passengers():
+                        # If a vehicle has enough capacity for a request,
+                        # calculate the cost of picking up the request
+                        cost = self.calculate_heuristic_prediction(vehicle, request)
+                    else:
+                        # If a vehicle doesn't have enough capacity for a request,
+                        # calculate the cost of dropping off other requests first
+                        vehicle_requests = vehicle.get_requests()
+                        for index in vehicle_requests:
+                            request = state.get_request(index)
                             cost = self.calculate_heuristic_prediction(vehicle, request)
-                        else:
-                            # If a vehicle doesn't have enough capacity for a request,
-                            # calculate the cost of dropping off other requests first
-                            vehicle_requests = vehicle.get_requests()
-                            for index in vehicle_requests:
-                                request = state.get_request(index)
-                                cost = self.calculate_heuristic_prediction(vehicle, request)
-
-                        if cost < min_cost:
-                            min_cost = cost
-
-                    # Add the minimum cost to the heuristic
-                    h += min_cost
-                elif request.get_status() == 'traveling':
-                    # If a request is traveling, calculate the cost of dropping off the request
-                    vehicle = state.get_vehicle(request.get_vehicle_id())
-                    time = vehicle.get_time()
-                    travel_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
-                    dropoff_time = time + travel_time
-                    h += (dropoff_time - request.get_status_time() -
-                          self.graph.get_edge(request.get_pickup(), request.get_dropoff()))
-
-        return h  # Return the calculated heuristic value
+                    if cost < min_cost:
+                        min_cost = cost
+                # Add the minimum cost to the heuristic
+                h += min_cost
+            elif request.get_status() == 'traveling':
+                # If a request is traveling, calculate the cost of dropping off the request
+                vehicle = state.get_vehicle(request.get_vehicle_id())
+                time = vehicle.get_time()
+                travel_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
+                dropoff_time = time + travel_time
+                h += (dropoff_time - request.get_status_time() -
+                      self.graph.get_edge(request.get_pickup(), request.get_dropoff()))
+        return h
 
     def calculate_heuristic_prediction(self, vehicle, request):
+        """Calculates the cost of picking up a request.
+
+            Args:
+                vehicle (Vehicle): The vehicle to pick up the request.
+                request (Request): The request to pick up.
+
+            Returns:
+                float: The calculated cost of picking up the request.
+        """
         time = vehicle.get_time()
         travel_time = self.graph.get_edge(vehicle.get_location(), request.get_pickup())
         arrival_time = time + travel_time
@@ -460,7 +489,7 @@ class Request:
     def get_status(self):
         """Gets the status of the request."""
         return self.status
-    
+
     def set_status_time(self, time):
         """Sets the status time of the request."""
         self.status_time = time
@@ -513,7 +542,7 @@ class Vehicle:
     def get_capacity(self):
         """Gets the capacity of the vehicle."""
         return self.capacity - self.passengers
-    
+
     def get_true_capacity(self):
         """Gets the capacity of the vehicle."""
         return self.capacity
@@ -635,7 +664,7 @@ class State:
     def get_requests(self):
         """Gets the requests in the state."""
         return self.requests
-    
+
     def get_request(self, request_id):
         """Gets a request in the state."""
         for request in self.requests:
@@ -655,7 +684,7 @@ class State:
 
 if __name__ == '__main__':
     fp = FleetProblem()
-    file_path = 'tests/ex8.dat'
+    file_path = 'tests/ex3.dat'
     with open(file_path) as f:
         fp.load(f.readlines())
 
