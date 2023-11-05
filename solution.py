@@ -20,6 +20,7 @@ class FleetProblem(Problem):
         self.requests = []
         self.fleet = []
         self.graph = None
+        self.pre_notion = None
 
     def load(self, file):
         """
@@ -84,8 +85,11 @@ class FleetProblem(Problem):
         sorted_fleet = sorted(self.fleet, key=lambda x: x.get_capacity(), reverse=True)
         sorted_requests = sorted(self.requests, key=lambda x: x.get_passengers(), reverse=True)
 
-        self.requests = tuple(sorted_requests)
-        self.fleet = tuple(sorted_fleet[:request_index])
+        self.fleet = sorted_fleet[:request_index]
+        self.requests = sorted_requests
+
+        self.requests = tuple(self.requests)
+        self.fleet = tuple(self.fleet)
 
         self.initial = State(self.requests, self.fleet)
 
@@ -105,40 +109,33 @@ class FleetProblem(Problem):
         requests = state.get_requests()
         vehicles = state.get_vehicles()
 
-        # Iterate over each request
-        for request in requests:
-            # Check if the request is waiting
-            if request.get_status() == 'waiting':
-                # Iterate over each vehicle
-                for vehicle in vehicles:
-                    # Check if the vehicle has enough capacity for the request passengers
-                    if vehicle.get_capacity() >= request.get_passengers():
-                        # Get the tiem of the veihicle
-                        time = vehicle.get_time()
+        # Iterate over each vehicle
+        for vehicle in vehicles:
+            # Iterate over each request
+            for request in requests:
+                # Check if the request is waiting and if the vehicle has enough capacity
+                if request.get_status() == 'waiting' and vehicle.get_capacity() >= request.get_passengers():
+                    time = vehicle.get_time()
 
-                        # Calculate the time it takes for the vehicle to reach the pickup location
-                        travel_time = self.graph.get_edge(vehicle.get_location(), request.get_pickup())
-                        arrival_time = time + travel_time
-                        request_time = request.get_time()
-                        pickup_time = max(arrival_time, request_time)
+                    # Calculate the time it takes for the vehicle to reach the pickup location
+                    travel_time = self.graph.get_edge(vehicle.get_location(), request.get_pickup())
+                    arrival_time = time + travel_time
+                    request_time = request.get_time()
+                    pickup_time = max(arrival_time, request_time)
 
-                        # Add a 'Pickup' action to the list of actions
-                        actions.append(Action('Pickup', vehicle.get_index(), request.get_index(), pickup_time))
+                    # Add a 'Pickup' action to the list of actions
+                    actions.append(Action('Pickup', vehicle.get_index(), request.get_index(), pickup_time))
 
-            # Check if the request is traveling
-            elif request.get_status() == 'traveling':
-                # Get the vehicle assigned to the request
-                vehicle = state.get_vehicle(request.get_vehicle_id())
+                # Check if the request is traveling and if the vehicle is assigned to this request
+                if request.get_status() == 'traveling' and request.get_vehicle_id() == vehicle.get_index():
+                    time = vehicle.get_time()
 
-                # Get the time of the vehicle
-                time = vehicle.get_time()
+                    # Calculate the time it takes for the vehicle to reach the dropoff location
+                    travel_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
+                    dropoff_time = time + travel_time
 
-                # Calculate the time it takes for the vehicle to reach the dropoff location
-                travel_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
-                dropoff_time = time + travel_time
-
-                # Add a 'Dropoff' action to the list of actions
-                actions.append(Action('Dropoff', vehicle.get_index(), request.get_index(), dropoff_time))
+                    # Add a 'Dropoff' action to the list of actions
+                    actions.append(Action('Dropoff', vehicle.get_index(), request.get_index(), dropoff_time))
 
         return actions  # Return the list of actions
 
@@ -297,53 +294,38 @@ class FleetProblem(Problem):
                 float: The calculated heuristic value.
         '''
         h = 0
-
-        # Iterate over each request
         for request in requests:
-            # Check if the request is waiting
             if request.get_status() == 'waiting':
                 # If a request is waiting, find the minimum cost of picking up the request
                 min_cost = float('inf')
-                # Iterate over each vehicle
                 for vehicle in vehicles:
                     cost = float('inf')
-
-                    # Check if the vehicle has enough capacity for the request
                     if vehicle.get_capacity() >= request.get_passengers():
-                        # Calculate the cost of picking up the request
-                        cost = self.pickup_delay(vehicle, request)
+                        # If a vehicle has enough capacity for a request,
+                        # calculate the cost of picking up the request
+                        cost = self.calculate_heuristic_prediction(vehicle, request)
                     else:
                         # If a vehicle doesn't have enough capacity for a request,
                         # calculate the cost of dropping off other requests first
                         vehicle_requests = vehicle.get_requests()
                         for index in vehicle_requests:
-                            vehicle_request = state.get_request(index)
-                            # if vehicle.get_capacity() + vehicle_request.get_passengers() >= request.get_passengers():
-                            time = vehicle.get_time()
-
-                            travel_time = (self.graph.get_edge(vehicle.get_location(), vehicle_request.get_dropoff()) + 
-                                            self.graph.get_edge(vehicle_request.get_dropoff(), request.get_pickup()))
-                            arrival_time = time + travel_time
-                            request_time = request.get_time()
-                            pickup_time = max(arrival_time, request_time)
-                            cost = pickup_time - request_time
+                            request = state.get_request(index)
+                            cost = self.calculate_heuristic_prediction(vehicle, request)
                     if cost < min_cost:
                         min_cost = cost
-
                 # Add the minimum cost to the heuristic
                 h += min_cost
-            
-            # Check if the request is traveling
             elif request.get_status() == 'traveling':
-                # Get the vehicle assigned to the request
+                # If a request is traveling, calculate the cost of dropping off the request
                 vehicle = state.get_vehicle(request.get_vehicle_id())
-
-                # Calculate the cost of dropping off the request
-                h += self.dropoff_delay(vehicle, request)
-
+                time = vehicle.get_time()
+                travel_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
+                dropoff_time = time + travel_time
+                h += (dropoff_time - request.get_status_time() -
+                      self.graph.get_edge(request.get_pickup(), request.get_dropoff()))
         return h
 
-    def pickup_delay(self, vehicle, request):
+    def calculate_heuristic_prediction(self, vehicle, request):
         """Calculates the cost of picking up a request.
 
             Args:
@@ -354,30 +336,11 @@ class FleetProblem(Problem):
                 float: The calculated cost of picking up the request.
         """
         time = vehicle.get_time()
-
         travel_time = self.graph.get_edge(vehicle.get_location(), request.get_pickup())
         arrival_time = time + travel_time
         request_time = request.get_time()
         pickup_time = max(arrival_time, request_time)
-
         return pickup_time - request_time
-    
-    def dropoff_delay(self, vehicle, request):
-        """Calculates the cost of dropping off a request.
-
-            Args:
-                vehicle (Vehicle): The vehicle to drop off the request.
-                request (Request): The request to drop off.
-
-            Returns:
-                float: The calculated cost of dropping off the request.
-        """
-        time = vehicle.get_time()
-
-        travel_time = self.graph.get_edge(vehicle.get_location(), request.get_dropoff())
-        dropoff_time = time + travel_time
-
-        return dropoff_time - request.get_status_time() - self.graph.get_edge(request.get_pickup(), request.get_dropoff())
 
     def solve(self):
         """Solves the problem using A star search."""
@@ -526,7 +489,7 @@ class Request:
     def get_status(self):
         """Gets the status of the request."""
         return self.status
-    
+
     def set_status_time(self, time):
         """Sets the status time of the request."""
         self.status_time = time
@@ -579,7 +542,7 @@ class Vehicle:
     def get_capacity(self):
         """Gets the capacity of the vehicle."""
         return self.capacity - self.passengers
-    
+
     def get_true_capacity(self):
         """Gets the capacity of the vehicle."""
         return self.capacity
@@ -701,7 +664,7 @@ class State:
     def get_requests(self):
         """Gets the requests in the state."""
         return self.requests
-    
+
     def get_request(self, request_id):
         """Gets a request in the state."""
         for request in self.requests:
@@ -721,7 +684,7 @@ class State:
 
 if __name__ == '__main__':
     fp = FleetProblem()
-    file_path = 'tests/ex9.dat'
+    file_path = 'tests/ex3.dat'
     with open(file_path) as f:
         fp.load(f.readlines())
 
